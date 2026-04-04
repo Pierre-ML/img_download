@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Background orbs -->
+  <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
+
+  <div class="layout">
+
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <header class="header">
+      <div class="header__inner">
+        <div class="header__brand">
+          <span class="header__icon" aria-hidden="true">⬡</span>
+          <span class="header__title">Image Downloader</span>
+        </div>
+        <div class="header__meta">
+          <span class="badge" id="status-badge">Prêt</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- ── Sidebar ──────────────────────────────────────────────────── -->
+      <aside class="sidebar">
+
+        <section class="glass-card">
+          <h2 class="section-title">Recherche</h2>
+
+          <div class="field">
+            <label class="field__label" for="keyword">Mot-clé</label>
+            <input
+              class="field__input"
+              id="keyword"
+              type="text"
+              placeholder="ex : paysage montagne"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="count">Nombre d'images</label>
+            <input
+              class="field__input"
+              id="count"
+              type="number"
+              value="20"
+              min="1"
+              max="500"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="dest">Dossier de destination</label>
+            <input
+              class="field__input"
+              id="dest"
+              type="text"
+              placeholder="Laisser vide = dossier par défaut"
+            />
+            <span class="field__hint">Un sous-dossier est créé automatiquement.</span>
+          </div>
+        </section>
+
+        <!-- Progress -->
+        <section class="glass-card">
+          <div class="progress-header">
+            <h2 class="section-title" style="margin-bottom:0">Progression</h2>
+            <span class="progress-counter" id="prog-text">0 / 0</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="actions">
+          <button class="btn btn--primary" id="btn-start" onclick="startDownload()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M3 2l9 5-9 5V2z" fill="currentColor"/>
+            </svg>
+            Démarrer
+          </button>
+          <button class="btn btn--danger" id="btn-stop" onclick="stopDownload()" disabled>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
+            </svg>
+            Stop
+          </button>
+        </div>
+
+        <!-- Log -->
+        <section class="glass-card glass-card--log">
+          <h2 class="section-title">Journal</h2>
+          <div class="log" id="log" aria-live="polite" aria-label="Journal des téléchargements"></div>
+        </section>
+
+      </aside>
+
+      <!-- ── Gallery ──────────────────────────────────────────────────── -->
+      <section class="gallery">
+        <div class="gallery__header">
+          <h2 class="section-title" style="margin-bottom:0">Aperçu</h2>
+          <span class="badge" id="count-label">0 image</span>
+        </div>
+
+        <div class="grid" id="grid">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-state__icon" aria-hidden="true">◈</div>
+            <p>Les images apparaîtront ici au fil du téléchargement.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
