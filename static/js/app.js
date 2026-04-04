@@ -2,76 +2,23 @@
    State
 ───────────────────────────────────────────────────────────────────────── */
 let currentJobId = null;
-let currentES    = null;
 let thumbCount   = 0;
-let targetCount  = 0;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Start
+   SSE — connexion globale unique
 ───────────────────────────────────────────────────────────────────────── */
-async function startDownload() {
-  const keyword = document.getElementById('keyword').value.trim();
-  const count   = parseInt(document.getElementById('count').value, 10);
-  const dest    = document.getElementById('dest').value.trim();
-
-  if (!keyword)            return toast('Entrez un mot-clé.', 'error');
-  if (!count || count < 1) return toast('Nombre invalide.', 'error');
-
-  targetCount = count;
-  resetUI(count);
-  setStatus('running', 'En cours…');
-
-  let res;
-  try {
-    res = await fetch('/api/start', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ keyword, count, dest }),
-    });
-  } catch {
-    toast('Impossible de contacter le serveur.', 'error');
-    setStatus('error', 'Erreur');
-    setRunning(false);
-    return;
-  }
-
-  const data = await res.json();
-  if (!res.ok) {
-    toast(data.error || 'Erreur serveur', 'error');
-    setStatus('error', 'Erreur');
-    setRunning(false);
-    return;
-  }
-
-  currentJobId = data.jobId;
-  openStream(currentJobId);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   Stop
-───────────────────────────────────────────────────────────────────────── */
-async function stopDownload() {
-  if (!currentJobId) return;
-  if (currentES) { currentES.close(); currentES = null; }
-  await fetch(`/api/stop/${currentJobId}`, { method: 'POST' });
-  setRunning(false);
-  setStatus('', 'Arrêté');
-  log('Arrêté par l\'utilisateur.', 'faint');
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   SSE
-───────────────────────────────────────────────────────────────────────── */
-function openStream(jobId) {
-  if (currentES) currentES.close();
-
-  const es = new EventSource(`/api/stream/${jobId}`);
-  currentES = es;
+(function initStream() {
+  const es = new EventSource('/api/stream');
 
   es.onmessage = ({ data }) => {
     const msg = JSON.parse(data);
 
     switch (msg.type) {
+
+      case 'queue_update':
+        renderQueue(msg.current, msg.pending);
+        break;
+
       case 'log':
         log(msg.text,
           msg.text.includes('✗') || msg.text.includes('ERREUR') ? 'error'
@@ -86,18 +33,132 @@ function openStream(jobId) {
         break;
 
       case 'thumb':
-        addThumb(jobId, msg.filename);
+        addThumb(msg.jobId, msg.filename);
         break;
 
       case 'done':
-        es.close();
-        currentES = null;
-        setRunning(false);
         setStatus(msg.success ? 'done' : 'error', msg.success ? 'Terminé' : 'Erreur');
         toast(msg.message, msg.success ? 'success' : 'error');
         break;
     }
   };
+
+  es.onerror = () => {
+    // Reconnexion automatique gérée par le navigateur (EventSource)
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Ajouter à la file
+───────────────────────────────────────────────────────────────────────── */
+async function addToQueue() {
+  const keyword = document.getElementById('keyword').value.trim();
+  const count   = parseInt(document.getElementById('count').value, 10);
+  const dest    = document.getElementById('dest').value.trim();
+
+  if (!keyword)            return toast('Entrez un mot-clé.', 'error');
+  if (!count || count < 1) return toast('Nombre invalide.', 'error');
+
+  let res;
+  try {
+    res = await fetch('/api/queue/add', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ keyword, count, dest }),
+    });
+  } catch {
+    return toast('Impossible de contacter le serveur.', 'error');
+  }
+
+  const data = await res.json();
+  if (!res.ok) return toast(data.error || 'Erreur serveur', 'error');
+
+  // Vider le champ mot-clé pour faciliter l'ajout du suivant
+  document.getElementById('keyword').value = '';
+  document.getElementById('keyword').focus();
+  toast(`"${keyword}" ajouté à la file.`, 'success');
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Supprimer un job en attente
+───────────────────────────────────────────────────────────────────────── */
+async function removeFromQueue(idx) {
+  await fetch(`/api/queue/${idx}`, { method: 'DELETE' });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Lancer la file
+───────────────────────────────────────────────────────────────────────── */
+async function launchQueue() {
+  const res  = await fetch('/api/queue/start', { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) return toast(data.error || 'Erreur', 'error');
+  document.getElementById('btn-launch').disabled = true;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Stop job courant
+───────────────────────────────────────────────────────────────────────── */
+async function stopCurrent() {
+  await fetch('/api/stop', { method: 'POST' });
+  document.getElementById('btn-stop').disabled = true;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Rendu de la file d'attente
+───────────────────────────────────────────────────────────────────────── */
+function renderQueue(current, pending) {
+  const list  = document.getElementById('queue-list');
+  const badge = document.getElementById('queue-badge');
+  list.innerHTML = '';
+
+  const total = (current ? 1 : 0) + pending.length;
+
+  if (total === 0) {
+    list.innerHTML = '<p class="queue-empty">Aucun téléchargement en cours.</p>';
+    badge.style.display = 'none';
+    document.getElementById('btn-stop').disabled   = true;
+    document.getElementById('btn-launch').disabled = true;
+    setStatus('', 'Prêt');
+    return;
+  }
+
+  // Bouton Lancer : actif seulement si file non vide et rien en cours
+  const isRunning = current !== null;
+  document.getElementById('btn-launch').disabled = isRunning || pending.length === 0;
+
+  // Badge total
+  badge.style.display = '';
+  badge.textContent   = `${total} job${total > 1 ? 's' : ''}`;
+
+  // Job courant
+  if (current) {
+    currentJobId = current.jobId;
+    document.getElementById('btn-stop').disabled = false;
+    setStatus('running', 'En cours…');
+
+    const el = document.createElement('div');
+    el.className = 'queue-item queue-item--active';
+    el.innerHTML = `
+      <span class="queue-item__dot"></span>
+      <span class="queue-item__kw">${escHtml(current.keyword)}</span>
+      <span class="queue-item__count">${current.count} img</span>
+    `;
+    list.appendChild(el);
+  }
+
+  // Jobs en attente
+  pending.forEach((job, idx) => {
+    const el = document.createElement('div');
+    el.className = 'queue-item';
+    el.innerHTML = `
+      <span class="queue-item__pos">${idx + 1}</span>
+      <span class="queue-item__kw">${escHtml(job.keyword)}</span>
+      <span class="queue-item__count">${job.count} img</span>
+      <button class="queue-item__remove" onclick="removeFromQueue(${idx})" title="Retirer">✕</button>
+    `;
+    list.appendChild(el);
+  });
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -106,13 +167,14 @@ function openStream(jobId) {
 function addThumb(jobId, filename) {
   document.getElementById('empty-state')?.remove();
 
+  const url  = `/api/thumb/${jobId}/${encodeURIComponent(filename)}`;
   const card = document.createElement('div');
   card.className = 'thumb-card';
 
   const img = document.createElement('img');
-  img.src     = `/api/thumb/${jobId}/${encodeURIComponent(filename)}`;
-  img.alt     = filename;
-  img.loading = 'lazy';
+  img.src      = url;
+  img.alt      = filename;
+  img.loading  = 'lazy';
   img.decoding = 'async';
 
   const overlay = document.createElement('div');
@@ -123,10 +185,21 @@ function addThumb(jobId, filename) {
   name.className   = 'thumb-name';
   name.textContent = filename;
 
-  card.append(img, overlay, name);
-  card.addEventListener('click', () => {
-    window.open(`/api/thumb/${jobId}/${encodeURIComponent(filename)}`, '_blank');
+  const del = document.createElement('button');
+  del.className   = 'thumb-delete';
+  del.textContent = '✕';
+  del.title       = 'Supprimer';
+  del.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await fetch(url, { method: 'DELETE' });
+    card.remove();
+    thumbCount--;
+    document.getElementById('count-label').textContent =
+      `${thumbCount} image${thumbCount > 1 ? 's' : ''}`;
   });
+
+  card.append(img, overlay, name, del);
+  card.addEventListener('click', () => window.open(url, '_blank'));
 
   document.getElementById('grid').appendChild(card);
   thumbCount++;
@@ -159,38 +232,14 @@ function setProgress(current, total) {
 /* ─────────────────────────────────────────────────────────────────────────
    UI helpers
 ───────────────────────────────────────────────────────────────────────── */
-function resetUI(count) {
-  // Vider le log
-  document.getElementById('log').innerHTML = '';
-  // Vider la grille
-  const grid = document.getElementById('grid');
-  grid.innerHTML = '';
-  thumbCount = 0;
-
-  const empty = document.createElement('div');
-  empty.className = 'empty-state';
-  empty.id = 'empty-state';
-  empty.innerHTML = `
-    <div class="empty-state__icon" aria-hidden="true">⏳</div>
-    <p>Téléchargement en cours…</p>
-  `;
-  grid.appendChild(empty);
-
-  // Reset progression
-  setProgress(0, count);
-  document.getElementById('count-label').textContent = '0 image';
-  setRunning(true);
-}
-
-function setRunning(running) {
-  document.getElementById('btn-start').disabled = running;
-  document.getElementById('btn-stop').disabled  = !running;
-}
-
 function setStatus(variant, label) {
   const badge = document.getElementById('status-badge');
-  badge.className = `badge${variant ? ` ${variant}` : ''}`;
+  badge.className   = `badge${variant ? ` ${variant}` : ''}`;
   badge.textContent = label;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -210,5 +259,5 @@ function toast(msg, type = '') {
    Keyboard
 ───────────────────────────────────────────────────────────────────────── */
 document.getElementById('keyword').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') startDownload();
+  if (e.key === 'Enter') addToQueue();
 });

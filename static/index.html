@@ -71,6 +71,24 @@
             />
             <span class="field__hint">Un sous-dossier est créé automatiquement.</span>
           </div>
+
+          <button class="btn btn--primary" id="btn-add" onclick="addToQueue()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Ajouter à la file
+          </button>
+        </section>
+
+        <!-- File d'attente -->
+        <section class="glass-card">
+          <div class="progress-header">
+            <h2 class="section-title" style="margin-bottom:0">File d'attente</h2>
+            <span class="badge" id="queue-badge" style="display:none"></span>
+          </div>
+          <div id="queue-list" class="queue-list">
+            <p class="queue-empty">Aucun téléchargement en cours.</p>
+          </div>
         </section>
 
         <!-- Progress -->
@@ -86,13 +104,13 @@
 
         <!-- Actions -->
         <div class="actions">
-          <button class="btn btn--primary" id="btn-start" onclick="startDownload()">
+          <button class="btn btn--primary" id="btn-launch" onclick="launchQueue()" disabled>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path d="M3 2l9 5-9 5V2z" fill="currentColor"/>
             </svg>
-            Démarrer
+            Lancer
           </button>
-          <button class="btn btn--danger" id="btn-stop" onclick="stopDownload()" disabled>
+          <button class="btn btn--danger" id="btn-stop" onclick="stopCurrent()" disabled>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
             </svg>
