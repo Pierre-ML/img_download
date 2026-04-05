@@ -3,150 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Image Downloader</title>
+  <title>Media Downloader</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-  <!-- Background orbs -->
-  <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
-  <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
+  <div class="home">
 
-  <div class="layout">
-
-    <!-- ── Header ─────────────────────────────────────────────────────── -->
-    <header class="header">
-      <div class="header__inner">
-        <div class="header__brand">
-          <span class="header__icon" aria-hidden="true">⬡</span>
-          <span class="header__title">Image Downloader</span>
-        </div>
-        <div class="header__meta">
-          <span class="badge" id="status-badge">Prêt</span>
-        </div>
+    <header class="home-header">
+      <div class="home-logo">
+        <span class="home-logo__mark">MD</span>
+        <span class="home-logo__sub">Media Downloader</span>
       </div>
     </header>
 
-    <main class="main">
+    <div class="home-hero">
+      <p class="home-hero__eyebrow">Choisissez un mode</p>
+      <h1 class="home-hero__title">Téléchargez <em>tout</em><br>ce que vous voulez.</h1>
+    </div>
 
-      <!-- ── Sidebar ──────────────────────────────────────────────────── -->
-      <aside class="sidebar">
+    <div class="home-modes">
 
-        <section class="glass-card">
-          <h2 class="section-title">Recherche</h2>
+      <a href="/images" class="mode-card">
+        <span class="mode-card__num">01</span>
+        <div class="mode-card__icon">◫</div>
+        <h2 class="mode-card__title">Images</h2>
+        <p class="mode-card__desc">Recherche Google Images — scraping automatique et téléchargement haute résolution.</p>
+        <span class="mode-card__arrow">↗</span>
+      </a>
 
-          <div class="field">
-            <label class="field__label" for="keyword">Mot-clé</label>
-            <input
-              class="field__input"
-              id="keyword"
-              type="text"
-              placeholder="ex : paysage montagne"
-              autocomplete="off"
-            />
-          </div>
+      <a href="/videos" class="mode-card">
+        <span class="mode-card__num">02</span>
+        <div class="mode-card__icon">▷</div>
+        <h2 class="mode-card__title">Vidéos</h2>
+        <p class="mode-card__desc">Copiez des liens depuis YouTube, Twitter, Vimeo ou n'importe quelle source — meilleure qualité disponible.</p>
+        <span class="mode-card__arrow">↗</span>
+      </a>
 
-          <div class="field">
-            <label class="field__label" for="count">Nombre d'images</label>
-            <input
-              class="field__input"
-              id="count"
-              type="number"
-              value="20"
-              min="1"
-              max="500"
-            />
-          </div>
+      <a href="/reddit" class="mode-card">
+        <span class="mode-card__num">03</span>
+        <div class="mode-card__icon">◈</div>
+        <h2 class="mode-card__title">Reddit</h2>
+        <p class="mode-card__desc">Extrait toutes les images et vidéos d'un post ou d'un subreddit entier.</p>
+        <span class="mode-card__arrow">↗</span>
+      </a>
 
-          <div class="field">
-            <label class="field__label" for="dest">Dossier de destination</label>
-            <input
-              class="field__input"
-              id="dest"
-              type="text"
-              placeholder="Laisser vide = dossier par défaut"
-            />
-            <span class="field__hint">Un sous-dossier est créé automatiquement.</span>
-          </div>
+    </div>
 
-          <button class="btn btn--primary" id="btn-add" onclick="addToQueue()">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            Ajouter à la file
-          </button>
-        </section>
-
-        <!-- File d'attente -->
-        <section class="glass-card">
-          <div class="progress-header">
-            <h2 class="section-title" style="margin-bottom:0">File d'attente</h2>
-            <span class="badge" id="queue-badge" style="display:none"></span>
-          </div>
-          <div id="queue-list" class="queue-list">
-            <p class="queue-empty">Aucun téléchargement en cours.</p>
-          </div>
-        </section>
-
-        <!-- Progress -->
-        <section class="glass-card">
-          <div class="progress-header">
-            <h2 class="section-title" style="margin-bottom:0">Progression</h2>
-            <span class="progress-counter" id="prog-text">0 / 0</span>
-          </div>
-          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-        </section>
-
-        <!-- Actions -->
-        <div class="actions">
-          <button class="btn btn--primary" id="btn-launch" onclick="launchQueue()" disabled>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M3 2l9 5-9 5V2z" fill="currentColor"/>
-            </svg>
-            Lancer
-          </button>
-          <button class="btn btn--danger" id="btn-stop" onclick="stopCurrent()" disabled>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/>
-            </svg>
-            Stop
-          </button>
-        </div>
-
-        <!-- Log -->
-        <section class="glass-card glass-card--log">
-          <h2 class="section-title">Journal</h2>
-          <div class="log" id="log" aria-live="polite" aria-label="Journal des téléchargements"></div>
-        </section>
-
-      </aside>
-
-      <!-- ── Gallery ──────────────────────────────────────────────────── -->
-      <section class="gallery">
-        <div class="gallery__header">
-          <h2 class="section-title" style="margin-bottom:0">Aperçu</h2>
-          <span class="badge" id="count-label">0 image</span>
-        </div>
-
-        <div class="grid" id="grid">
-          <div class="empty-state" id="empty-state">
-            <div class="empty-state__icon" aria-hidden="true">◈</div>
-            <p>Les images apparaîtront ici au fil du téléchargement.</p>
-          </div>
-        </div>
-      </section>
-
-    </main>
   </div>
 
-  <!-- Toast -->
-  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
-
-  <script src="js/app.js"></script>
 </body>
 </html>
