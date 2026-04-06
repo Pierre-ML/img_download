@@ -4,113 +4,113 @@ Lancer : python app.py  →  http://localhost:5000
 """
 
 import json
+import logging
 import uuid
 import queue as _qmod
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
-from dataclasses import dataclass
-from flask import Flask, request, jsonify, Response, send_file, send_from_directory
 
+from flask import Flask, Response, jsonify, request, send_file, send_from_directory
+
+import config
 from workers.image_worker  import DownloadWorker
 from workers.video_worker  import VideoWorker
 from workers.reddit_worker import RedditWorker
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+# ── App Flask ─────────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-# ---------------------------------------------------------------------------
-# Job
-# ---------------------------------------------------------------------------
+
+# ── Modèle ────────────────────────────────────────────────────────────────────
 @dataclass
 class Job:
     id:      str
-    type:    str          # "images" | "video" | "reddit"
-    label:   str          # mot-clé ou URL courte pour l'affichage
+    type:    str           # "images" | "video" | "reddit"
+    label:   str           # affiché dans la file d'attente
     count:   int
-    out_dir: Path | None = None
     status:  str = "running"
-    worker:  object = None
+    out_dir: Path | None = None
+    worker:  object = field(default=None, repr=False)
 
 
-# ---------------------------------------------------------------------------
-# État global
-# ---------------------------------------------------------------------------
-_jobs: dict[str, Job] = {}
-
-_pending: list[dict] = []
-_pending_lock = threading.Lock()
-
-_current_job: Job | None = None
-
-_subscribers: list[_qmod.Queue] = []
-_subs_lock = threading.Lock()
-
+# ── État global ───────────────────────────────────────────────────────────────
+_jobs:         dict[str, Job]        = {}
+_pending:      list[dict]            = []
+_pending_lock                        = threading.Lock()
+_current_job:  Job | None           = None
+_subscribers:  list[_qmod.Queue]    = []
+_subs_lock                           = threading.Lock()
 _runner_thread: threading.Thread | None = None
 
 
-# ---------------------------------------------------------------------------
-# SSE helpers
-# ---------------------------------------------------------------------------
-def _publish(event: dict):
+# ── SSE — publication ─────────────────────────────────────────────────────────
+def _publish(event: dict) -> None:
     with _subs_lock:
         for q in _subscribers:
             q.put(event)
 
 
-def _publish_queue_state():
+def _publish_queue_state() -> None:
     with _pending_lock:
         snap = list(_pending)
     _publish({
-        "type": "queue_update",
-        "current": _job_summary(_current_job),
+        "type":    "queue_update",
+        "current": _job_to_dict(_current_job),
         "pending": snap,
     })
 
 
-def _job_summary(job: Job | None) -> dict | None:
+def _job_to_dict(job: Job | None) -> dict | None:
     if not job:
         return None
-    return {"jobId": job.id, "type": job.type,
-            "label": job.label, "count": job.count, "status": job.status}
+    return {
+        "jobId":  job.id,
+        "type":   job.type,
+        "label":  job.label,
+        "count":  job.count,
+        "status": job.status,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Queue runner
-# ---------------------------------------------------------------------------
-def _make_worker(task: dict, job: Job):
-    t = task["type"]
-    cb = _make_cb(job)
+# ── Queue runner ──────────────────────────────────────────────────────────────
+def _build_worker(task: dict, job: Job) -> DownloadWorker | VideoWorker | RedditWorker:
+    """Instancie le bon worker selon le type de tâche."""
+    cb   = _make_callback(job)
     dest = task["dest"]
 
-    if t == "images":
-        return DownloadWorker(
-            job_id   = job.id,
-            keyword  = task["keyword"],
-            count    = task["count"],
-            dest     = dest,
-            event_cb = cb,
-        )
-    if t == "video":
-        return VideoWorker(
-            job_id   = job.id,
-            urls     = task["urls"],
-            dest     = dest,
-            event_cb = cb,
-        )
-    if t == "reddit":
-        return RedditWorker(
-            job_id   = job.id,
-            url      = task["url"],
-            count    = task["count"],
-            dest     = dest,
-            event_cb = cb,
-        )
-    raise ValueError(f"Type inconnu : {t}")
+    match task["type"]:
+        case "images":
+            return DownloadWorker(
+                job_id=job.id, keyword=task["keyword"],
+                count=task["count"], dest=dest, event_cb=cb,
+            )
+        case "video":
+            return VideoWorker(
+                job_id=job.id, urls=task["urls"],
+                dest=dest, event_cb=cb,
+            )
+        case "reddit":
+            return RedditWorker(
+                job_id=job.id, url=task["url"],
+                count=task["count"], dest=dest, event_cb=cb,
+            )
+        case _:
+            raise ValueError(f"Type de tâche inconnu : {task['type']!r}")
 
 
-def _make_cb(job: Job):
-    def event_cb(event: dict):
-        ev = dict(event)
-        ev["jobId"] = job.id
+def _make_callback(job: Job):
+    """Retourne le callback SSE associé à un job."""
+    def event_cb(event: dict) -> None:
+        ev = {**event, "jobId": job.id}
         _publish(ev)
         if ev.get("type") == "done":
             job.status = "done" if ev.get("success") else "error"
@@ -118,15 +118,16 @@ def _make_cb(job: Job):
     return event_cb
 
 
-def _run_queue():
+def _run_queue() -> None:
+    """Boucle principale du runner — s'exécute dans un thread dédié."""
     global _current_job, _runner_thread
 
     while True:
         with _pending_lock:
             if not _pending:
-                _current_job = None
-                _publish_queue_state()
+                _current_job  = None
                 _runner_thread = None
+                _publish_queue_state()
                 return
             task = _pending.pop(0)
 
@@ -135,24 +136,22 @@ def _run_queue():
         _jobs[job.id] = job
         _current_job  = job
         _publish_queue_state()
+        log.info("Job démarré : %s [%s]", job.label, job.type)
 
-        worker = _make_worker(task, job)
+        worker     = _build_worker(task, job)
         job.worker = worker
-
-        # Exposer out_dir pour les thumbnails après démarrage
         worker.start()
         worker.join()
 
-        # Synchroniser out_dir sur le job
         if hasattr(worker, "out_dir"):
             job.out_dir = worker.out_dir
         if job.status == "running":
             job.status = "done"
 
+        log.info("Job terminé : %s — statut=%s", job.label, job.status)
 
-# ---------------------------------------------------------------------------
-# Pages HTML
-# ---------------------------------------------------------------------------
+
+# ── Pages HTML ────────────────────────────────────────────────────────────────
 @app.route("/")
 def home():
     return send_from_directory("static", "index.html")
@@ -170,66 +169,70 @@ def page_reddit():
     return send_from_directory("static", "reddit.html")
 
 
-# ---------------------------------------------------------------------------
-# API — file d'attente
-# ---------------------------------------------------------------------------
-def _default_dest():
-    return str(Path.home() / "Pictures" / "MediaDownloader")
+# ── API — file d'attente ──────────────────────────────────────────────────────
+def _parse_count(data: dict, default: int) -> int:
+    """Extrait et valide le champ count d'une requête JSON."""
+    count = int(data.get("count", default))
+    if count < 1:
+        raise ValueError("count doit être >= 1")
+    return count
+
+
+def _resolve_dest(data: dict) -> str:
+    return (data.get("dest") or "").strip() or config.DEFAULT_DEST
 
 
 @app.route("/api/queue", methods=["GET"])
 def queue_state():
     with _pending_lock:
         snap = list(_pending)
-    return jsonify(current=_job_summary(_current_job), pending=snap)
+    return jsonify(current=_job_to_dict(_current_job), pending=snap)
 
 
 @app.route("/api/queue/add", methods=["POST"])
 def queue_add():
     data = request.get_json(force=True)
-    t    = data.get("type", "")
-    dest = (data.get("dest") or "").strip() or _default_dest()
+    kind = data.get("type", "")
+    dest = _resolve_dest(data)
 
-    # --- Images ---
-    if t == "images":
-        keyword = (data.get("keyword") or "").strip()
-        if not keyword:
-            return jsonify(error="Mot-clé manquant"), 400
-        try:
-            count = int(data.get("count", 20)); assert count > 0
-        except Exception:
-            return jsonify(error="Nombre invalide"), 400
-        task = {"type": "images", "label": keyword,
-                "keyword": keyword, "count": count, "dest": dest}
+    try:
+        if kind == "images":
+            keyword = (data.get("keyword") or "").strip()
+            if not keyword:
+                return jsonify(error="Mot-clé manquant"), 400
+            count = _parse_count(data, default=20)
+            task  = {"type": "images", "label": keyword,
+                     "keyword": keyword, "count": count, "dest": dest}
 
-    # --- Vidéos ---
-    elif t == "video":
-        raw  = data.get("urls") or []
-        urls = [u.strip() for u in (raw if isinstance(raw, list)
-                else raw.splitlines()) if u.strip()]
-        if not urls:
-            return jsonify(error="Aucune URL fournie"), 400
-        task = {"type": "video", "label": f"{len(urls)} lien(s)",
-                "urls": urls, "count": len(urls), "dest": dest}
+        elif kind == "video":
+            raw  = data.get("urls") or []
+            urls = [u.strip() for u in
+                    (raw if isinstance(raw, list) else raw.splitlines())
+                    if u.strip()]
+            if not urls:
+                return jsonify(error="Aucune URL fournie"), 400
+            task = {"type": "video", "label": f"{len(urls)} lien(s)",
+                    "urls": urls, "count": len(urls), "dest": dest}
 
-    # --- Reddit ---
-    elif t == "reddit":
-        url = (data.get("url") or "").strip()
-        if not url:
-            return jsonify(error="URL manquante"), 400
-        try:
-            count = int(data.get("count", 50)); assert count > 0
-        except Exception:
-            return jsonify(error="Nombre invalide"), 400
-        task = {"type": "reddit", "label": url.split("reddit.com")[-1][:40],
-                "url": url, "count": count, "dest": dest}
+        elif kind == "reddit":
+            url = (data.get("url") or "").strip()
+            if not url:
+                return jsonify(error="URL manquante"), 400
+            count = _parse_count(data, default=50)
+            task  = {"type": "reddit",
+                     "label": url.split("reddit.com")[-1][:40],
+                     "url": url, "count": count, "dest": dest}
 
-    else:
-        return jsonify(error="Type invalide"), 400
+        else:
+            return jsonify(error="Type invalide"), 400
+
+    except (ValueError, TypeError) as exc:
+        return jsonify(error=str(exc)), 400
 
     with _pending_lock:
         _pending.append(task)
     _publish_queue_state()
+    log.info("Ajouté à la file : %s [%s]", task["label"], kind)
     return jsonify(ok=True)
 
 
@@ -244,6 +247,7 @@ def queue_start():
         return jsonify(error="File vide"), 400
     _runner_thread = threading.Thread(target=_run_queue, daemon=True)
     _runner_thread.start()
+    log.info("Runner démarré")
     return jsonify(ok=True)
 
 
@@ -252,8 +256,9 @@ def queue_remove(idx: int):
     with _pending_lock:
         if not (0 <= idx < len(_pending)):
             return jsonify(error="Index invalide"), 404
-        _pending.pop(idx)
+        removed = _pending.pop(idx)
     _publish_queue_state()
+    log.info("Job retiré de la file : %s", removed.get("label"))
     return jsonify(ok=True)
 
 
@@ -262,23 +267,35 @@ def stop():
     if _current_job and _current_job.worker:
         _current_job.worker.stop()
         _current_job.status = "stopped"
+        log.info("Job arrêté : %s", _current_job.label)
     return jsonify(ok=True)
 
 
-# ---------------------------------------------------------------------------
-# SSE global
-# ---------------------------------------------------------------------------
+@app.route("/api/reset", methods=["POST"])
+def reset_all():
+    global _current_job
+    if _current_job and _current_job.worker:
+        _current_job.worker.stop()
+        _current_job.status = "stopped"
+    _current_job = None
+    with _pending_lock:
+        _pending.clear()
+    _publish_queue_state()
+    log.info("Réinitialisation complète")
+    return jsonify(ok=True)
+
+
+# ── SSE ───────────────────────────────────────────────────────────────────────
 @app.route("/api/stream")
 def stream():
     q: _qmod.Queue = _qmod.Queue()
     with _subs_lock:
         _subscribers.append(q)
 
-    # État immédiat à la connexion
     with _pending_lock:
         snap = list(_pending)
     q.put({"type": "queue_update",
-           "current": _job_summary(_current_job), "pending": snap})
+           "current": _job_to_dict(_current_job), "pending": snap})
 
     def generate():
         try:
@@ -294,28 +311,31 @@ def stream():
                 except ValueError:
                     pass
 
-    return Response(generate(), mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache",
-                             "X-Accel-Buffering": "no",
-                             "Connection": "keep-alive"})
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":       "keep-alive",
+        },
+    )
 
 
-# ---------------------------------------------------------------------------
-# Fichiers médias (images + vidéos)
-# ---------------------------------------------------------------------------
-def _resolve_media(job_id: str, filename: str):
+# ── Médias (serve + delete) ───────────────────────────────────────────────────
+def _resolve_media(job_id: str, filename: str) -> Path | None:
+    """Résout le chemin d'un fichier média de façon sécurisée (path traversal)."""
     job = _jobs.get(job_id)
     if not job:
         return None
-    # out_dir peut être sur worker ou sur job
-    out_dir = job.out_dir
-    if out_dir is None and job.worker and hasattr(job.worker, "out_dir"):
-        out_dir = job.worker.out_dir
+    out_dir = job.out_dir or (
+        getattr(job.worker, "out_dir", None) if job.worker else None
+    )
     if not out_dir:
         return None
-    out_dir  = out_dir.resolve()
+    out_dir  = Path(out_dir).resolve()
     filepath = (out_dir / filename).resolve()
-    if not str(filepath).startswith(str(out_dir)):
+    if not filepath.is_relative_to(out_dir):
         return None
     return filepath
 
@@ -335,12 +355,13 @@ def delete_media(job_id: str, filename: str):
         return jsonify(error="Introuvable"), 404
     try:
         fp.unlink(missing_ok=True)
-    except OSError as e:
-        return jsonify(error=str(e)), 500
+    except OSError as exc:
+        log.error("Suppression échouée : %s — %s", fp, exc)
+        return jsonify(error=str(exc)), 500
     return jsonify(ok=True)
 
 
-# ---------------------------------------------------------------------------
+# ── Entrée ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("Serveur démarré → http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    log.info("Serveur démarré → http://%s:%s", config.HOST, config.PORT)
+    app.run(host=config.HOST, port=config.PORT, debug=False, threaded=True)

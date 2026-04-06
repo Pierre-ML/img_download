@@ -1,0 +1,51 @@
+/* ── Log ────────────────────────────────────────────────────────────────── */
+.log {
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  transition: flex 200ms var(--ease), min-height 200ms var(--ease);
+}
+
+.log--collapsed {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.log--collapsed .log__body { display: none; }
+
+/* Toggle */
+.log__toggle {
+  background: none;
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text-3);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1.5;
+  font-family: var(--font-sans);
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.log__toggle:hover {
+  color: var(--clr-text);
+  border-color: var(--clr-border-hi);
+}
+
+/* Body (zone scrollable) */
+.log__body {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.75;
+  color: var(--clr-text-3);
+  min-height: 0;
+}
+
+/* Lignes */
+.log__line        { animation: fadeUp 120ms var(--ease) both; }
+.log__line--ok    { color: var(--clr-success); }
+.log__line--error { color: var(--clr-danger); }
+.log__line--faint { color: var(--clr-text-3); }

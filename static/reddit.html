@@ -26,13 +26,13 @@
     </div>
   </header>
 
-  <div class="main">
+  <div class="layout__main">
 
     <aside class="sidebar">
 
       <!-- Source -->
       <div class="card">
-        <p class="card-title">Source Reddit</p>
+        <p class="card__title">Source Reddit</p>
 
         <div class="field">
           <label class="field__label" for="url">URL du post ou subreddit</label>
@@ -61,28 +61,28 @@
 
       <!-- File d'attente -->
       <div class="card">
-        <div class="progress-header">
-          <p class="card-title" style="margin-bottom:0">File d'attente</p>
+        <div class="progress__header">
+          <p class="card__title" style="margin-bottom:0">File d'attente</p>
           <span class="badge" id="queue-badge" style="display:none"></span>
         </div>
-        <div id="queue-list" class="queue-list">
-          <p class="queue-empty">Aucun job en attente.</p>
+        <div id="queue-list" class="queue">
+          <p class="queue__empty">Aucun job en attente.</p>
         </div>
       </div>
 
       <!-- Progression -->
       <div class="card">
-        <div class="progress-header">
-          <p class="card-title" style="margin-bottom:0">Progression</p>
-          <span class="progress-counter" id="prog-text">0 / 0</span>
+        <div class="progress__header">
+          <p class="card__title" style="margin-bottom:0">Progression</p>
+          <span class="progress__counter" id="prog-text">0 / 0</span>
         </div>
-        <div class="progress-track">
-          <div class="progress-fill" id="progress-fill"></div>
+        <div class="progress__track">
+          <div class="progress__fill" id="progress-fill"></div>
         </div>
       </div>
 
       <!-- Actions -->
-      <div class="actions">
+      <div class="btn-group">
         <button class="btn btn--primary" id="btn-launch" onclick="launchQueue()" disabled>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 1.5l8 4.5-8 4.5V1.5z" fill="currentColor"/></svg>
           Lancer
@@ -91,12 +91,18 @@
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x=".5" y=".5" width="9" height="9" rx="2" fill="currentColor"/></svg>
           Stop
         </button>
+        <button class="btn btn--ghost" id="btn-reset" onclick="resetAll()" title="Tout réinitialiser">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="10,2 10,4.5 7.5,4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <!-- Journal -->
-      <div class="card log-wrap" style="flex:1;min-height:120px">
-        <p class="card-title">Journal</p>
-        <div class="log" id="log" aria-live="polite"></div>
+      <div class="card log" id="log-wrap">
+        <div class="card__title-row">
+          <p class="card__title">Journal</p>
+          <button class="log__toggle" id="btn-log-toggle" onclick="toggleLog()">Masquer</button>
+        </div>
+        <div class="log__body" id="log" aria-live="polite"></div>
       </div>
 
     </aside>
@@ -107,10 +113,10 @@
         <span class="gallery__title">Médias</span>
         <span class="badge" id="count-label">0 fichier</span>
       </div>
-      <div class="grid" id="grid">
-        <div class="empty-state" id="empty-state">
-          <div class="empty-state__icon">◈</div>
-          <p>Les médias apparaîtront ici.</p>
+      <div class="gallery__grid" id="grid">
+        <div class="empty" id="empty-state">
+          <div class="empty__icon">◈</div>
+          <p class="empty__text">Les médias apparaîtront ici.</p>
         </div>
       </div>
     </section>

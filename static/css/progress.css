@@ -1,0 +1,29 @@
+/* ── Progress ───────────────────────────────────────────────────────────── */
+.progress__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.progress__counter {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--clr-text-2);
+}
+
+.progress__track {
+  height: 4px;
+  background: var(--clr-surface-3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--clr-accent), var(--clr-accent-2));
+  border-radius: 99px;
+  transition: width 400ms var(--ease);
+  box-shadow: 0 0 8px rgba(124, 106, 247, .4);
+}

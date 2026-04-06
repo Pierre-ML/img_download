@@ -1,19 +1,19 @@
-# Image Downloader
+# Media Downloader
 
-Application web pour télécharger des images depuis Google Images.
-Backend Flask + Selenium, frontend HTML/CSS/JS vanilla avec design glassmorphism.
+Application web de téléchargement de médias : images Google, vidéos (YouTube, Twitter, Vimeo…) et médias Reddit.
+Backend Flask + Selenium, frontend HTML/CSS/JS vanilla.
 
 ---
 
 ## Stack
 
-| Couche     | Technologie                          |
-|------------|--------------------------------------|
-| Backend    | Python / Flask                       |
-| Scraping   | Selenium + undetected-chromedriver   |
-| Download   | requests                             |
-| Images     | Pillow                               |
-| Frontend   | HTML · CSS · JS vanilla              |
+| Couche      | Technologie                           |
+|-------------|---------------------------------------|
+| Backend     | Python 3.10+ / Flask                  |
+| Scraping    | Selenium + undetected-chromedriver    |
+| Vidéos      | yt-dlp                                |
+| Validation  | pur Python (magic bytes, sans PIL)    |
+| Frontend    | HTML · CSS (BEM) · JS vanilla         |
 
 ---
 
@@ -28,10 +28,8 @@ Backend Flask + Selenium, frontend HTML/CSS/JS vanilla avec design glassmorphism
 ## Installation
 
 ```bash
-pip install flask selenium undetected-chromedriver requests Pillow setuptools
+pip install flask selenium undetected-chromedriver requests yt-dlp
 ```
-
-> `setuptools` est nécessaire sur Python 3.12+ car `distutils` a été retiré de la stdlib.
 
 ---
 
@@ -41,64 +39,80 @@ pip install flask selenium undetected-chromedriver requests Pillow setuptools
 python app.py
 ```
 
-Ouvrir ensuite : [http://localhost:5000](http://localhost:5000)
+Ouvrir : [http://localhost:5000](http://localhost:5000)
+
+Variables d'environnement optionnelles :
+
+```bash
+PORT=5000
+MEDIA_DEST=~/Pictures/MediaDownloader
+CHROME_VERSION=146   # à ajuster selon votre version Chrome
+```
 
 ---
 
-## Utilisation
+## Modes
 
-1. Entrer un **mot-clé** de recherche
-2. Choisir le **nombre d'images**
-3. Optionnel : renseigner un **dossier de destination** (défaut : `~/Pictures/GoogleImages`)
-4. Cliquer sur **Démarrer**
-
-Les images sont sauvegardées dans un sous-dossier portant le nom de la recherche :
+### Images
+Recherche Google Images par mot-clé. Scraping automatique + tentative haute résolution via le panneau latéral Google.
 
 ```
-~/Pictures/GoogleImages/
-└── nezuko/
-    ├── nezuko_001.jpg
-    ├── nezuko_002.png
+~/Pictures/MediaDownloader/
+└── paysage montagne/
+    ├── paysage montagne_001.jpg
+    ├── paysage montagne_002.png
     └── ...
 ```
+
+### Vidéos
+Paste d'URLs (une par ligne) depuis YouTube, Twitter/X, Vimeo, Reddit ou tout lien direct. Téléchargement en meilleure qualité disponible, rendu en MP4.
+
+### Reddit
+URL d'un post ou d'un subreddit entier. Extrait toutes les images et vidéos, y compris les galeries Reddit et les vidéos natives v.redd.it.
+
+---
+
+## Fonctionnalités
+
+- File d'attente multi-jobs (les jobs s'enchaînent automatiquement)
+- Logs en temps réel via SSE (Server-Sent Events)
+- Barre de progression live
+- Aperçu miniature cliquable dans l'interface
+- Virtual scroll : 250+ images sans lag (images hors écran déchargées de la mémoire)
+- Déduplication par hash MD5 (évite les doublons de contenu)
+- Délais aléatoires entre téléchargements (rate-limit friendly)
+- Bouton Stop pour interrompre le job en cours
+- Bouton Réinitialiser pour tout effacer et repartir à zéro
+- Console masquable (bouton Masquer/Afficher)
 
 ---
 
 ## Structure du projet
 
 ```
-bot_net/
-├── app.py                  # Serveur Flask — routes API + SSE
-├── worker.py               # Thread de scraping et téléchargement
-├── static/
-│   ├── index.html          # Page principale
-│   ├── css/
-│   │   └── style.css       # Styles (dark theme / glassmorphism)
-│   └── js/
-│       └── app.js          # Logique frontend (SSE, DOM)
-├── requirements_downloader.txt
-└── README.md
+img_download/
+├── app.py              # Serveur Flask — routes API + runner de file
+├── config.py           # Constantes centralisées (port, délais, tailles…)
+├── workers/
+│   ├── image_worker.py # Scraping Google Images
+│   ├── video_worker.py # Téléchargement vidéo via yt-dlp
+│   ├── reddit_worker.py# Extraction médias Reddit
+│   └── image_utils.py  # Parsing image pur Python (sans PIL)
+└── static/
+    ├── index.html / images.html / videos.html / reddit.html
+    ├── css/            # CSS splitté en composants (BEM)
+    │   ├── style.css   # Point d'entrée (@import)
+    │   ├── var.css     # Design tokens
+    │   └── ...         # Un fichier par composant
+    └── js/
+        ├── common.js   # Logique partagée (SSE, thumbnails, virtual scroll)
+        ├── images.js / videos.js / reddit.js
 ```
-
----
-
-## Fonctionnalités
-
-- Scraping Google Images via Chrome headful (contourne les protections)
-- Tentative de récupération des images haute résolution via le panneau latéral Google
-- Déduplication par hash MD5 du contenu (évite les doublons)
-- Délais aléatoires entre chaque téléchargement (1 – 3 s)
-- Logs en temps réel via SSE (Server-Sent Events)
-- Barre de progression live
-- Aperçu miniature cliquable dans l'interface
-- Gestion silencieuse des erreurs (image corrompue → suivante)
-- Nommage automatique : `motcle_001.jpg`, `motcle_002.png`…
-- Formats supportés : jpg, png, webp
 
 ---
 
 ## Notes
 
-- Chrome doit être installé. `undetected-chromedriver` gère le téléchargement du ChromeDriver automatiquement.
-- Si le ChromeDriver ne correspond pas à la version de Chrome, passer `version_main=<version>` dans `worker.py` ligne 185.
-- Le mode headless est disponible (décommenter `--headless=new` dans `worker.py`).
+- `undetected-chromedriver` gère le téléchargement automatique du ChromeDriver.
+- Si Chrome est mis à jour, changer `CHROME_VERSION` dans `config.py` ou via la variable d'environnement.
+- Pas de Pillow : la validation et les dimensions des images sont lues directement depuis les octets (magic bytes).

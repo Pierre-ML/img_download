@@ -1,79 +1,89 @@
 """
-DownloadWorker — thread de scraping/téléchargement
-Callbacks via queue (SSE-friendly, pas de dépendance tkinter)
+DownloadWorker — scraping Google Images + téléchargement.
+Communique via callbacks SSE (thread-safe).
 """
 
-import threading
-import os
-import re
-import time
-import random
 import hashlib
-import requests
+import random
+import re
+import threading
+import time
 from pathlib import Path
-from io import BytesIO
-from PIL import Image
+from typing import Callable
+
+import requests
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
+import config
+from .image_utils import image_dimensions, is_valid_image
 
-SUPPORTED_MIME = {
+# ── Constantes ────────────────────────────────────────────────────────────────
+_MIME_TO_EXT: dict[str, str] = {
     "image/jpeg": ".jpg",
     "image/png":  ".png",
     "image/webp": ".webp",
-    "image/gif":  ".jpg",
+    "image/gif":  ".gif",
 }
-DEFAULT_EXT  = ".jpg"
-DELAY_MIN    = 1.0
-DELAY_MAX    = 3.0
+_DEFAULT_EXT  = ".jpg"
+_PANEL_CSS    = (
+    'img[jsname="kn3ccd"],img[class*="iPVvYb"],'
+    'a[jsname="sTFXNd"] img,div[jsname="figiqf"] img'
+)
+_GOOGLE_IMG_CSS = "img.YQ4gaf"
 
 
 class DownloadWorker(threading.Thread):
-    def __init__(self, job_id: str, keyword: str, count: int, dest: str,
-                 event_cb):  # event_cb(dict) → mis sur la queue par app.py
+    """Thread de scraping Google Images et de téléchargement."""
+
+    def __init__(self, job_id: str, keyword: str, count: int,
+                 dest: str, event_cb: Callable[[dict], None]) -> None:
         super().__init__(daemon=True)
-        self.job_id   = job_id
-        self.keyword  = keyword
-        self.count    = count
-        self.dest     = dest
-        self._cb      = event_cb
-        self._stop    = threading.Event()
+        self.job_id  = job_id
+        self.keyword = keyword
+        self.count   = count
+        self.dest    = dest
+        self._cb     = event_cb
+        self._stop   = threading.Event()
         self.out_dir: Path | None = None
 
-    def stop(self):
+    def stop(self) -> None:
         self._stop.set()
 
-    # -----------------------------------------------------------------------
-    def _emit(self, type_: str, **kwargs):
+    # ── Émission d'événements ─────────────────────────────────────────────────
+    def _emit(self, type_: str, **kwargs) -> None:
         self._cb({"type": type_, **kwargs})
 
-    def _log(self, text: str):
+    def _log(self, text: str) -> None:
         self._emit("log", text=text)
 
-    def _progress(self, current: int, total: int):
+    def _progress(self, current: int, total: int) -> None:
         self._emit("progress", current=current, total=total)
 
-    def _thumb(self, filename: str):
+    def _thumb(self, filename: str) -> None:
         self._emit("thumb", filename=filename)
 
-    # -----------------------------------------------------------------------
+    # ── Utilitaires ───────────────────────────────────────────────────────────
     @staticmethod
     def _sanitize(name: str) -> str:
+        """Supprime les caractères invalides pour un nom de dossier."""
         return re.sub(r'[\\/*?:"<>|]', "_", name)
 
     def _ext_from(self, url: str, content_type: str | None) -> str:
+        """Détermine l'extension à partir du Content-Type ou de l'URL."""
         if content_type:
-            for mime, ext in SUPPORTED_MIME.items():
+            for mime, ext in _MIME_TO_EXT.items():
                 if mime in content_type:
                     return ext
         for ext in (".jpg", ".jpeg", ".png", ".webp"):
             if url.lower().split("?")[0].endswith(ext):
                 return ".jpg" if ext == ".jpeg" else ext
-        return DEFAULT_EXT
+        return _DEFAULT_EXT
 
-    # -----------------------------------------------------------------------
+    # ── Collecte des URLs ─────────────────────────────────────────────────────
     def _collect_urls(self, driver) -> list[str]:
+        """Scrape Google Images et retourne les URLs haute résolution."""
         urls: list[str] = []
         seen: set[str]  = set()
 
@@ -85,24 +95,25 @@ class DownloadWorker(threading.Thread):
         driver.get(search_url)
         time.sleep(2)
 
-        # Accepter les cookies
+        # Accepter le bandeau de cookies si présent
         try:
-            btn = driver.find_element(By.XPATH,
-                '//button[contains(., "Tout accepter") or contains(., "Accept all")]')
+            btn = driver.find_element(
+                By.XPATH,
+                '//button[contains(., "Tout accepter") or contains(., "Accept all")]',
+            )
             btn.click()
             time.sleep(1.5)
         except Exception:
             pass
 
-        # Revenir en haut — Google peut scroller après le cookie banner
         driver.execute_script("window.scrollTo(0, 0);")
 
-        # Attendre que les premières images aient un vrai src http (lazy-load déclenché)
+        # Attendre que les images aient un vrai src HTTP
         try:
             WebDriverWait(driver, 6).until(
                 lambda d: any(
                     (img.get_attribute("src") or "").startswith("http")
-                    for img in d.find_elements(By.CSS_SELECTOR, "img.YQ4gaf")
+                    for img in d.find_elements(By.CSS_SELECTOR, _GOOGLE_IMG_CSS)
                 )
             )
         except Exception:
@@ -111,10 +122,10 @@ class DownloadWorker(threading.Thread):
         last_height    = 0
         scroll_attempts = 0
 
-        while len(urls) < self.count and scroll_attempts < 60:
+        while len(urls) < self.count and scroll_attempts < config.IMG_SCROLL_MAX:
             if self._stop.is_set():
                 break
-            for img in driver.find_elements(By.CSS_SELECTOR, "img.YQ4gaf"):
+            for img in driver.find_elements(By.CSS_SELECTOR, _GOOGLE_IMG_CSS):
                 src = img.get_attribute("src") or ""
                 if src.startswith("http") and src not in seen:
                     seen.add(src)
@@ -124,67 +135,59 @@ class DownloadWorker(threading.Thread):
             driver.execute_script("window.scrollBy(0, 1200);")
             time.sleep(0.8)
             new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                scroll_attempts += 5
-            last_height     = new_height
-            scroll_attempts += 1
+            scroll_attempts += 5 if new_height == last_height else 1
+            last_height = new_height
 
-        # Revenir en haut : les premières miniatures rechargent leur src en étant en vue
+        # Retour en haut pour déclencher le rechargement des miniatures
         driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(2.5)
 
-        # Tentative haute résolution — itération en ordre DOM (préserve l'ordre des résultats)
-        hires: list[str] = []
-        replaced_srcs: set[str] = set()
-        thumbs = driver.find_elements(By.CSS_SELECTOR, "img.YQ4gaf")
+        # Tentative de récupération haute résolution via le panel latéral
+        hires: list[str]        = []
+        replaced: set[str]      = set()
+        thumbs = driver.find_elements(By.CSS_SELECTOR, _GOOGLE_IMG_CSS)
         self._log(f"{len(thumbs)} miniatures — tentative haute résolution…")
 
-        PANEL_CSS = ('img[jsname="kn3ccd"],img[class*="iPVvYb"],'
-                     'a[jsname="sTFXNd"] img,div[jsname="figiqf"] img')
-
-        for thumb in thumbs[:self.count * 2]:
+        for thumb in thumbs[: self.count * 2]:
             if self._stop.is_set() or len(hires) >= self.count:
                 break
             thumb_src = thumb.get_attribute("src") or ""
             try:
                 driver.execute_script("arguments[0].click();", thumb)
-
-                # Attendre qu'une image source (non-tbn) soit chargée dans le panel
                 best_src = None
-                for _ in range(6):               # jusqu'à ~3s
+                for _ in range(6):
                     time.sleep(0.5)
-                    for panel in driver.find_elements(By.CSS_SELECTOR, PANEL_CSS):
+                    for panel in driver.find_elements(By.CSS_SELECTOR, _PANEL_CSS):
                         src = panel.get_attribute("src") or ""
                         if src.startswith("http") and "encrypted-tbn" not in src:
                             best_src = src
                             break
                     if best_src:
                         break
-
-                # Fallback : accepter un tbn si rien de mieux n'est apparu
+                # Fallback : accepter un tbn si rien de mieux
                 if not best_src:
-                    for panel in driver.find_elements(By.CSS_SELECTOR, PANEL_CSS):
+                    for panel in driver.find_elements(By.CSS_SELECTOR, _PANEL_CSS):
                         src = panel.get_attribute("src") or ""
                         if src.startswith("http"):
                             best_src = src
                             break
-
                 if best_src and best_src not in seen:
                     seen.add(best_src)
                     hires.append(best_src)
-                    replaced_srcs.add(thumb_src)
+                    replaced.add(thumb_src)
             except Exception:
                 pass
 
-        # Exclure les thumbnails déjà couverts par une version hires
-        remaining = [u for u in urls if u not in replaced_srcs]
-        final = (hires + remaining)[:self.count]
+        remaining = [u for u in urls if u not in replaced]
+        final     = (hires + remaining)[: self.count]
         self._log(f"{len(final)} URL(s) collectée(s)")
         return final
 
+    # ── Téléchargement ────────────────────────────────────────────────────────
     def _download_one(self, url: str, filepath: Path,
                       session: requests.Session,
                       seen_hashes: set[str]) -> bool:
+        """Télécharge, valide et sauvegarde une image. Retourne True si réussi."""
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -193,7 +196,8 @@ class DownloadWorker(threading.Thread):
             ),
             "Referer": "https://www.google.com/",
         }
-        resp = session.get(url, headers=headers, timeout=15)
+        resp = session.get(url, headers=headers,
+                           timeout=config.IMG_REQUEST_TIMEOUT)
         resp.raise_for_status()
 
         ct = resp.headers.get("Content-Type", "")
@@ -202,38 +206,37 @@ class DownloadWorker(threading.Thread):
 
         raw = resp.content
 
-        # Déduplication par hash du contenu
+        # Déduplication par hash MD5
         h = hashlib.md5(raw, usedforsecurity=False).hexdigest()
         if h in seen_hashes:
-            self._log("  ⟳ Doublon détecté, ignoré")
+            self._log("  ⟳ Doublon, ignoré")
             return False
         seen_hashes.add(h)
 
-        img = Image.open(BytesIO(raw))
-        img.verify()
-        img = Image.open(BytesIO(raw))
-
-        # Rejeter les images trop petites (thumbnails qui ont passé le filtre URL)
-        if img.width < 300 or img.height < 300:
-            self._log(f"  ⟳ Trop petit ({img.width}×{img.height}), ignoré")
+        if not is_valid_image(raw):
+            self._log("  ✗ Format non reconnu, ignoré")
             return False
 
-        if filepath.suffix.lower() in (".jpg", ".jpeg") and img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
+        w, h = image_dimensions(raw)
+        if w is None or h is None:
+            self._log("  ✗ Dimensions illisibles, ignoré")
+            return False
 
-        save_kwargs = {"quality": 95, "subsampling": 0} if filepath.suffix.lower() in (".jpg", ".jpeg") else {}
-        img.save(filepath, **save_kwargs)
+        if w < config.IMG_MIN_SIZE or h < config.IMG_MIN_SIZE:
+            self._log(f"  ⟳ Trop petit ({w}×{h}), ignoré")
+            return False
+
+        filepath.write_bytes(raw)
         return True
 
-    # -----------------------------------------------------------------------
-    def run(self):
-        safe_kw  = self._sanitize(self.keyword)
-        out_dir  = Path(self.dest) / safe_kw
+    # ── Thread principal ──────────────────────────────────────────────────────
+    def run(self) -> None:
+        safe_kw = self._sanitize(self.keyword)
+        out_dir = Path(self.dest) / safe_kw
         out_dir.mkdir(parents=True, exist_ok=True)
         self.out_dir = out_dir
         self._log(f"Dossier : {out_dir}")
 
-        # Chrome
         self._log("Démarrage de Chrome…")
         opts = uc.ChromeOptions()
         opts.add_argument("--window-size=1280,900")
@@ -241,8 +244,12 @@ class DownloadWorker(threading.Thread):
         driver = None
 
         try:
-            driver = uc.Chrome(options=opts, use_subprocess=True, version_main=146)
-            urls   = self._collect_urls(driver)
+            driver = uc.Chrome(
+                options=opts,
+                use_subprocess=True,
+                version_main=config.CHROME_VERSION,
+            )
+            urls = self._collect_urls(driver)
         except Exception as exc:
             self._log(f"[ERREUR] {exc}")
             self._emit("done", success=False, message=str(exc))
@@ -271,8 +278,8 @@ class DownloadWorker(threading.Thread):
             try:
                 head = session.head(url, timeout=8, allow_redirects=True,
                                     headers={"User-Agent": "Mozilla/5.0"})
-                ext  = self._ext_from(url, head.headers.get("Content-Type"))
-                fp   = out_dir / f"{safe_kw}_{idx:03d}{ext}"
+                ext = self._ext_from(url, head.headers.get("Content-Type"))
+                fp  = out_dir / f"{safe_kw}_{idx:03d}{ext}"
 
                 if self._download_one(url, fp, session, seen_hashes):
                     success += 1
@@ -281,13 +288,12 @@ class DownloadWorker(threading.Thread):
                     self._log(f"  ✓ {fp.name}")
                 else:
                     failed += 1
-                    self._log("  ✗ Non-image, ignoré")
             except Exception as exc:
                 failed += 1
                 self._log(f"  ✗ {exc}")
 
             if success < self.count and idx < len(urls):
-                delay = random.uniform(DELAY_MIN, DELAY_MAX)
+                delay = random.uniform(config.IMG_DELAY_MIN, config.IMG_DELAY_MAX)
                 self._log(f"  … {delay:.1f}s")
                 time.sleep(delay)
 
