@@ -13,10 +13,12 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, request, send_file, send_from_directory
 
+import accounts
 import config
 from workers.image_worker  import DownloadWorker
 from workers.video_worker  import VideoWorker
-from workers.reddit_worker import RedditWorker
+from workers.reddit_worker import RedditWorker, RedditSavedWorker
+from workers.x_worker      import XLikesWorker
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -103,6 +105,16 @@ def _build_worker(task: dict, job: Job) -> DownloadWorker | VideoWorker | Reddit
                 job_id=job.id, url=task["url"],
                 count=task["count"], dest=dest, event_cb=cb,
             )
+        case "reddit_saved":
+            return RedditSavedWorker(
+                job_id=job.id, count=task["count"], dest=dest,
+                event_cb=cb, creds=accounts.load()["reddit"],
+            )
+        case "x_likes":
+            return XLikesWorker(
+                job_id=job.id, count=task["count"], dest=dest,
+                event_cb=cb, creds=accounts.load()["x"],
+            )
         case _:
             raise ValueError(f"Type de tâche inconnu : {task['type']!r}")
 
@@ -168,6 +180,28 @@ def page_videos():
 def page_reddit():
     return send_from_directory("static", "reddit.html")
 
+@app.route("/x")
+def page_x():
+    return send_from_directory("static", "x.html")
+
+@app.route("/comptes")
+def page_comptes():
+    return send_from_directory("static", "comptes.html")
+
+
+# ── API — comptes ─────────────────────────────────────────────────────────────
+@app.route("/api/accounts", methods=["GET"])
+def accounts_get():
+    return jsonify(accounts.masked())
+
+
+@app.route("/api/accounts", methods=["POST"])
+def accounts_save():
+    data = request.get_json(force=True)
+    saved = accounts.save(data)
+    log.info("Comptes mis à jour")
+    return jsonify(accounts.masked(saved))
+
 
 # ── API — file d'attente ──────────────────────────────────────────────────────
 def _parse_count(data: dict, default: int) -> int:
@@ -222,6 +256,26 @@ def queue_add():
             task  = {"type": "reddit",
                      "label": url.split("reddit.com")[-1][:40],
                      "url": url, "count": count, "dest": dest}
+
+        elif kind == "reddit_saved":
+            acc = accounts.load()
+            if not accounts.reddit_ready(acc):
+                return jsonify(error="Compte Reddit non configuré "
+                                     "(page Comptes)"), 400
+            count = _parse_count(data, default=50)
+            task  = {"type": "reddit_saved",
+                     "label": f"u/{acc['reddit']['username']} — enregistrés",
+                     "count": count, "dest": dest}
+
+        elif kind == "x_likes":
+            acc = accounts.load()
+            if not accounts.x_ready(acc):
+                return jsonify(error="Compte X non configuré "
+                                     "(page Comptes)"), 400
+            count = _parse_count(data, default=50)
+            task  = {"type": "x_likes",
+                     "label": f"@{acc['x']['username']} — likes",
+                     "count": count, "dest": dest}
 
         else:
             return jsonify(error="Type invalide"), 400

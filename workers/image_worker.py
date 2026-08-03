@@ -1,13 +1,15 @@
 """
 DownloadWorker — scraping Google Images + téléchargement.
 Communique via callbacks SSE (thread-safe).
+Téléchargements en parallèle (config.IMG_PARALLEL) ; nommage
+`motclé_NNN_LARGExHAUT.ext` avec numérotation continue entre les runs.
 """
 
 import hashlib
-import random
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 
@@ -17,21 +19,22 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
 import config
-from .image_utils import image_dimensions, is_valid_image
+from .image_utils import detect_ext, image_dimensions, sanitize_filename
 
 # ── Constantes ────────────────────────────────────────────────────────────────
-_MIME_TO_EXT: dict[str, str] = {
-    "image/jpeg": ".jpg",
-    "image/png":  ".png",
-    "image/webp": ".webp",
-    "image/gif":  ".gif",
-}
-_DEFAULT_EXT  = ".jpg"
 _PANEL_CSS    = (
     'img[jsname="kn3ccd"],img[class*="iPVvYb"],'
     'a[jsname="sTFXNd"] img,div[jsname="figiqf"] img'
 )
 _GOOGLE_IMG_CSS = "img.YQ4gaf"
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://www.google.com/",
+}
 
 
 class DownloadWorker(threading.Thread):
@@ -47,6 +50,10 @@ class DownloadWorker(threading.Thread):
         self._cb     = event_cb
         self._stop   = threading.Event()
         self.out_dir: Path | None = None
+        # État partagé entre les threads de téléchargement
+        self._dl_lock     = threading.Lock()
+        self._seen_hashes: set[str] = set()
+        self._file_num    = 0
 
     def stop(self) -> None:
         self._stop.set()
@@ -63,23 +70,6 @@ class DownloadWorker(threading.Thread):
 
     def _thumb(self, filename: str) -> None:
         self._emit("thumb", filename=filename)
-
-    # ── Utilitaires ───────────────────────────────────────────────────────────
-    @staticmethod
-    def _sanitize(name: str) -> str:
-        """Supprime les caractères invalides pour un nom de dossier."""
-        return re.sub(r'[\\/*?:"<>|]', "_", name)
-
-    def _ext_from(self, url: str, content_type: str | None) -> str:
-        """Détermine l'extension à partir du Content-Type ou de l'URL."""
-        if content_type:
-            for mime, ext in _MIME_TO_EXT.items():
-                if mime in content_type:
-                    return ext
-        for ext in (".jpg", ".jpeg", ".png", ".webp"):
-            if url.lower().split("?")[0].endswith(ext):
-                return ".jpg" if ext == ".jpeg" else ext
-        return _DEFAULT_EXT
 
     # ── Collecte des URLs ─────────────────────────────────────────────────────
     def _collect_urls(self, driver) -> list[str]:
@@ -184,58 +174,55 @@ class DownloadWorker(threading.Thread):
         return final
 
     # ── Téléchargement ────────────────────────────────────────────────────────
-    def _download_one(self, url: str, filepath: Path,
-                      session: requests.Session,
-                      seen_hashes: set[str]) -> bool:
-        """Télécharge, valide et sauvegarde une image. Retourne True si réussi."""
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Referer": "https://www.google.com/",
-        }
-        resp = session.get(url, headers=headers,
+    def _download_one(self, url: str, session: requests.Session,
+                      out_dir: Path, safe_kw: str) -> tuple[str, str | None]:
+        """Télécharge, valide et sauvegarde une image.
+        Retourne ("ok", nom_fichier) | ("skip", raison) | ("stopped", None)."""
+        if self._stop.is_set():
+            return ("stopped", None)
+
+        resp = session.get(url, headers=_HEADERS,
                            timeout=config.IMG_REQUEST_TIMEOUT)
         resp.raise_for_status()
-
-        ct = resp.headers.get("Content-Type", "")
-        if not any(m in ct for m in ("image/", "application/octet")):
-            return False
-
         raw = resp.content
 
-        # Déduplication par hash MD5
-        h = hashlib.md5(raw, usedforsecurity=False).hexdigest()
-        if h in seen_hashes:
-            self._log("  ⟳ Doublon, ignoré")
-            return False
-        seen_hashes.add(h)
+        ext = detect_ext(raw)
+        if ext is None:
+            return ("skip", "format non reconnu")
 
-        if not is_valid_image(raw):
-            self._log("  ✗ Format non reconnu, ignoré")
-            return False
+        digest = hashlib.md5(raw, usedforsecurity=False).hexdigest()
+        with self._dl_lock:
+            if digest in self._seen_hashes:
+                return ("skip", "doublon")
+            self._seen_hashes.add(digest)
 
         w, h = image_dimensions(raw)
         if w is None or h is None:
-            self._log("  ✗ Dimensions illisibles, ignoré")
-            return False
-
+            return ("skip", "dimensions illisibles")
         if w < config.IMG_MIN_SIZE or h < config.IMG_MIN_SIZE:
-            self._log(f"  ⟳ Trop petit ({w}×{h}), ignoré")
-            return False
+            return ("skip", f"trop petit ({w}×{h})")
 
-        filepath.write_bytes(raw)
-        return True
+        # Réservation du numéro + écriture sous lock : pas de collision de noms
+        with self._dl_lock:
+            self._file_num += 1
+            fp = out_dir / f"{safe_kw}_{self._file_num:03d}_{w}x{h}{ext}"
+            fp.write_bytes(raw)
+        return ("ok", fp.name)
 
     # ── Thread principal ──────────────────────────────────────────────────────
     def run(self) -> None:
-        safe_kw = self._sanitize(self.keyword)
+        safe_kw = sanitize_filename(self.keyword, fallback="images")
         out_dir = Path(self.dest) / safe_kw
         out_dir.mkdir(parents=True, exist_ok=True)
         self.out_dir = out_dir
         self._log(f"Dossier : {out_dir}")
+
+        # Reprend la numérotation là où le run précédent s'était arrêté
+        num_re = re.compile(re.escape(safe_kw) + r"_(\d+)")
+        for f in out_dir.iterdir():
+            m = num_re.match(f.stem)
+            if m:
+                self._file_num = max(self._file_num, int(m.group(1)))
 
         self._log("Démarrage de Chrome…")
         opts = uc.ChromeOptions()
@@ -265,38 +252,42 @@ class DownloadWorker(threading.Thread):
             self._emit("done", success=False, message="Aucune URL collectée.")
             return
 
-        session      = requests.Session()
-        seen_hashes: set[str] = set()
-        success = failed = 0
+        session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=config.IMG_PARALLEL,
+            pool_maxsize=config.IMG_PARALLEL * 2,
+        )
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
 
-        for idx, url in enumerate(urls, 1):
-            if self._stop.is_set():
-                self._log("Arrêté par l'utilisateur.")
-                break
+        success = skipped = failed = 0
+        self._log(f"Téléchargement de {len(urls)} image(s) "
+                  f"({config.IMG_PARALLEL} en parallèle)…")
 
-            self._log(f"[{idx}/{len(urls)}] {url[:80]}…")
-            try:
-                head = session.head(url, timeout=8, allow_redirects=True,
-                                    headers={"User-Agent": "Mozilla/5.0"})
-                ext = self._ext_from(url, head.headers.get("Content-Type"))
-                fp  = out_dir / f"{safe_kw}_{idx:03d}{ext}"
-
-                if self._download_one(url, fp, session, seen_hashes):
+        with ThreadPoolExecutor(max_workers=config.IMG_PARALLEL) as pool:
+            futures = {pool.submit(self._download_one, url, session,
+                                   out_dir, safe_kw): url
+                       for url in urls}
+            for fut in as_completed(futures):
+                try:
+                    status, detail = fut.result()
+                except Exception as exc:
+                    failed += 1
+                    self._log(f"  ✗ {str(exc)[:100]}")
+                    continue
+                if status == "ok":
                     success += 1
                     self._progress(success, self.count)
-                    self._thumb(fp.name)
-                    self._log(f"  ✓ {fp.name}")
-                else:
-                    failed += 1
-            except Exception as exc:
-                failed += 1
-                self._log(f"  ✗ {exc}")
+                    self._thumb(detail)
+                    self._log(f"  ✓ {detail}")
+                elif status == "skip":
+                    skipped += 1
+                    self._log(f"  ⟳ {detail}, ignoré")
 
-            if success < self.count and idx < len(urls):
-                delay = random.uniform(config.IMG_DELAY_MIN, config.IMG_DELAY_MAX)
-                self._log(f"  … {delay:.1f}s")
-                time.sleep(delay)
+        if self._stop.is_set():
+            self._log("Arrêté par l'utilisateur.")
 
-        msg = f"{success} image(s) téléchargée(s), {failed} échec(s)."
+        msg = (f"{success} image(s) téléchargée(s), "
+               f"{skipped} ignorée(s), {failed} échec(s).")
         self._log(f"\n✅ {msg}")
         self._emit("done", success=True, message=msg)

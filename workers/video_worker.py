@@ -1,6 +1,8 @@
 """
 VideoWorker — téléchargement vidéo via yt-dlp.
 Supporte YouTube, Twitter/X, Reddit, Vimeo, liens directs…
+Fichiers nommés `Titre [id].mp4` — l'id évite qu'une vidéo
+homonyme écrase ou bloque la précédente.
 """
 
 import re
@@ -19,7 +21,9 @@ _YDL_OPTS_BASE: dict = {
     "quiet":               True,
     "no_warnings":         True,
     "retries":             3,
+    "concurrent_fragment_downloads": 4,
 }
+_LOG_STEP_PCT = 5.0   # granularité des logs de progression
 
 
 class VideoWorker(threading.Thread):
@@ -63,23 +67,31 @@ class VideoWorker(threading.Thread):
                 break
 
             self._log(f"[{idx}/{total}] {url[:90]}…")
-            saved: list[str] = []
+            saved:    list[str]   = []
+            last_pct: list[float] = [-_LOG_STEP_PCT]
 
-            def hook(d: dict, _saved: list[str] = saved) -> None:
+            def hook(d: dict, _saved: list[str] = saved,
+                     _last: list[float] = last_pct) -> None:
                 if d.get("status") == "downloading":
-                    pct   = d.get("_percent_str", "").strip()
-                    speed = d.get("_speed_str",   "").strip()
-                    eta   = d.get("_eta_str",     "").strip()
-                    if pct:
-                        self._log(f"  ↓ {pct}  {speed}  ETA {eta}")
+                    raw_pct = _ANSI_RE.sub("", d.get("_percent_str") or "")
+                    try:
+                        pct = float(raw_pct.strip().rstrip("%"))
+                    except ValueError:
+                        return
+                    if pct - _last[0] >= _LOG_STEP_PCT:
+                        _last[0] = pct
+                        speed = _ANSI_RE.sub("", d.get("_speed_str") or "").strip()
+                        eta   = _ANSI_RE.sub("", d.get("_eta_str")   or "").strip()
+                        self._log(f"  ↓ {pct:.0f}%  {speed}  ETA {eta}")
                 elif d.get("status") == "finished":
                     fname = Path(d["filename"]).name
                     _saved.append(fname)
+                    _last[0] = -_LOG_STEP_PCT
                     self._log(f"  ✓ {fname}")
 
             ydl_opts = {
                 **_YDL_OPTS_BASE,
-                "outtmpl":        str(out_dir / "%(title).80s.%(ext)s"),
+                "outtmpl":        str(out_dir / "%(title).80s [%(id)s].%(ext)s"),
                 "progress_hooks": [hook],
             }
 

@@ -59,6 +59,24 @@
         </button>
       </div>
 
+      <!-- Mes enregistrés -->
+      <div class="card">
+        <p class="card__title">Mes posts enregistrés</p>
+
+        <div class="field">
+          <label class="field__label" for="saved-count">Limite de médias</label>
+          <input class="field__input" id="saved-count" type="number" value="50" min="1" max="1000" />
+          <span class="field__hint" id="saved-account-hint">
+            Nécessite un compte — <a href="/comptes" style="color:var(--clr-accent)">page Comptes</a>
+          </span>
+        </div>
+
+        <button class="btn btn--primary" onclick="addSavedToQueue()" style="width:100%;margin-top:4px">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Télécharger mes enregistrés
+        </button>
+      </div>
+
       <!-- File d'attente -->
       <div class="card">
         <div class="progress__header">

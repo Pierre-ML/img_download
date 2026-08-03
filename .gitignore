@@ -25,3 +25,6 @@ Thumbs.db
 
 # Téléchargements (ne pas committer les médias)
 downloads/
+
+# Identifiants locaux (Reddit, X) — jamais versionnés
+accounts.json
