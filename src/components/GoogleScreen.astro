@@ -3,16 +3,24 @@ import ScreenHeader from './ScreenHeader.astro';
 ---
 
 <section data-screen="google" class="mx-auto w-full max-w-2xl" hidden>
-  <ScreenHeader animal="hibou" title="Google Images" description="Télécharge les images d'une recherche, converties en PNG." />
+  <ScreenHeader animal="hibou" title="Google Images" description="Télécharge les images d'une recherche, converties dans le format choisi." />
   <div class="panel flex flex-col gap-4">
     <div>
       <label class="field-label" for="google-query">Mot-clé</label>
       <input id="google-query" class="field" type="text" placeholder="ex. paysage montagne" autocomplete="off" />
     </div>
-    <div class="flex items-end gap-4">
-      <div class="w-40">
+    <div class="flex flex-wrap items-end gap-4">
+      <div class="w-32">
         <label class="field-label" for="google-limit">Nombre d'images</label>
         <input id="google-limit" class="field" type="number" min="1" max="2000" value="50" />
+      </div>
+      <div class="w-40">
+        <label class="field-label" for="google-image-format">Images</label>
+        <select id="google-image-format" class="field" data-format="image"></select>
+      </div>
+      <div class="w-40">
+        <label class="field-label" for="google-video-format">Vidéos</label>
+        <select id="google-video-format" class="field" data-format="video"></select>
       </div>
       <button id="google-add" type="button" class="button-primary ml-auto" disabled>Ajouter à la file</button>
     </div>

@@ -80,6 +80,14 @@
 
 @layer components {
   .panel { @apply rounded-xl border border-border bg-surface p-5; }
+  .resize-handle { @apply absolute z-20 touch-none outline-none; }
+  .resize-handle::after { content: ''; @apply pointer-events-none absolute bg-transparent transition-colors duration-150 motion-reduce:transition-none; }
+  .resize-handle:hover::after, .resize-handle:focus-visible::after { @apply bg-fg/20; }
+  .resize-handle[data-dragging='true']::after { @apply bg-fg/40; }
+  .resize-handle-x { @apply inset-y-0 w-1.5 cursor-col-resize; }
+  .resize-handle-x::after { @apply inset-y-0 left-1/2 w-px -translate-x-1/2; }
+  .resize-handle-y { @apply inset-x-0 h-1.5 cursor-row-resize; }
+  .resize-handle-y::after { @apply inset-x-0 top-1/2 h-px -translate-y-1/2; }
   .field { @apply h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0; }
   .field-label { @apply mb-1.5 block text-sm font-medium; }
   .button-primary, .button-ghost, .button-danger { @apply inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none; }

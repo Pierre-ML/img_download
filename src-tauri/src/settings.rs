@@ -6,6 +6,28 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
+/// Format de sortie des images.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ImageFormat {
+    #[default]
+    Png,
+    Jpg,
+    Webp,
+    Avif,
+}
+
+/// Format de sortie des vidéos.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoFormat {
+    #[default]
+    H264,
+    H265,
+    Vp9,
+    Av1,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -14,6 +36,9 @@ pub struct Settings {
     pub optimize_png: bool,
     pub reencode_video: bool,
     pub video_crf: u32,
+    pub image_format: ImageFormat,
+    pub video_format: VideoFormat,
+    pub image_quality: u32,
 }
 
 impl Default for Settings {
@@ -24,6 +49,9 @@ impl Default for Settings {
             optimize_png: true,
             reencode_video: true,
             video_crf: 23,
+            image_format: ImageFormat::Png,
+            video_format: VideoFormat::H264,
+            image_quality: 85,
         }
     }
 }
@@ -37,6 +65,7 @@ impl Settings {
         }
         self.parallel = self.parallel.clamp(1, 16);
         self.video_crf = self.video_crf.clamp(18, 35);
+        self.image_quality = self.image_quality.clamp(50, 100);
         self
     }
 }
@@ -122,4 +151,34 @@ pub async fn save_settings(
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     *guard = s.clone();
     Ok(s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn old_settings_load_with_defaults() {
+        let s: Settings = serde_json::from_str(
+            r#"{"destDir":"C:\\x","parallel":3,"optimizePng":false,"reencodeVideo":true,"videoCrf":20}"#,
+        )
+        .unwrap();
+        assert_eq!(s.image_format, ImageFormat::Png);
+        assert_eq!(s.video_format, VideoFormat::H264);
+        assert_eq!(s.image_quality, 85);
+        assert_eq!(s.parallel, 3);
+    }
+
+    #[test]
+    fn formats_json_and_quality_bounds() {
+        let s: Settings = serde_json::from_str(
+            r#"{"imageFormat":"avif","videoFormat":"vp9","imageQuality":10}"#,
+        )
+        .unwrap();
+        assert_eq!(s.image_format, ImageFormat::Avif);
+        assert_eq!(s.video_format, VideoFormat::Vp9);
+        assert_eq!(s.normalized().image_quality, 50);
+        let out = serde_json::to_string(&Settings::default()).unwrap();
+        assert!(out.contains(r#""imageFormat":"png""#) && out.contains(r#""videoFormat":"h264""#));
+    }
 }

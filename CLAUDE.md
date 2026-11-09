@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Application desktop **Windows uniquement** (Tauri 2) de téléchargement de médias : Google Images, likes X, posts enregistrés Reddit. Les images sont converties en PNG, les vidéos/GIF en MP4 via ffmpeg (sidecar).
+Application desktop **Windows uniquement** (Tauri 2) de téléchargement de médias : Google Images, likes X, posts enregistrés Reddit. Les images sont converties au format choisi (PNG, JPG, WebP, AVIF) et les vidéos/GIF dans le codec choisi (MP4 H.264/H.265, WebM VP9/AV1) via ffmpeg (sidecar).
 - `src/` : frontend Astro + Tailwind v4, TypeScript vanilla (pas de framework JS)
 - `src-tauri/` : cœur Rust (file d'attente, sources, pipeline, auth)
 - `scripts/fetch-ffmpeg.mjs` : récupère le binaire ffmpeg sidecar
@@ -112,8 +112,10 @@ Règles d'une source : s'arrêter si `tx.send` échoue ou si `ctx.cancel` est le
 - **ffmpeg sidecar** : `bundle.externalBin = ["binaries/ffmpeg"]` ; le fichier `ffmpeg-<triple>[.exe]` doit exister avant `tauri dev/build` (`fetch-ffmpeg`). À l'exécution : `ffmpeg[.exe]` à côté de `current_exe()`, sinon le PATH.
 - **`cookies_for_url`** (webview Tauri) : à n'appeler qu'en contexte **async** sur Windows, sinon deadlock.
 - **X** : le `queryId` GraphQL périme régulièrement ; en cas d'erreur 400/404 sur les likes, le re-extraire du bundle JS de x.com.
-- **Nommage** : Google `motclé_NNN_LARGExHAUT.ext` (numérotation continue) ; X `user_tweetId_NN` ; Reddit `Titre du post[_NN]`. Caractères interdits nettoyés, 120 car. max, suffixe `_2`, `_3`… en cas de collision. L'extension vient du contenu final (PNG/MP4).
+- **Nommage** : Google `motclé_NNN_LARGExHAUT.ext` (numérotation continue) ; X `user_tweetId_NN` ; Reddit `Titre du post[_NN]`. Caractères interdits nettoyés, 120 car. max, suffixe `_2`, `_3`… en cas de collision. L'extension vient du format de sortie choisi (png/jpg/webp/avif, mp4 pour h264/h265, webm pour vp9/av1).
 - **Déduplication** à trois niveaux : `key` persistée dans `<app_data_dir>/downloaded.json` (→ `skipped`), URL dans le job, SHA-256 du contenu final dans le job.
 - **Sessions** : cookies chiffrés (AES-GCM) sur disque, clé dans le trousseau OS (`keyring`). Les secrets ne passent jamais au frontend (`AccountStatus` = connecté + pseudo).
 - **Assets locaux** : le frontend affiche les médias via le protocole `asset:` ; le scope est autorisé dynamiquement sur le dossier de destination.
 - Dossiers de sortie : `<destDir>/Google/<motclé>/`, `<destDir>/X/Likes/`, `<destDir>/Reddit/Saved/`.
+- **Formats de sortie** : images png/jpg/webp/avif, vidéos h264/h265/vp9/av1 (`ImageFormat`/`VideoFormat` dans `settings.rs`, JSON en minuscules). Défaut dans les Réglages (`imageFormat`, `videoFormat`, `imageQuality` 50..100), surchargeable par job via `imageFormat`/`videoFormat` dans `JobRequest`. PNG = qualité max sans perte, AVIF = le plus léger ; MP4 H.264 = qualité/compatibilité max (copie sans ré-encodage possible), WebM AV1 = le plus léger. `optimize_png` ne vaut que pour le PNG, `reencode_video` que pour H.264 (les autres codecs sont toujours ré-encodés) ; CRF de base `video_crf` décalé par codec (`ffmpeg::video_crf_for`).
+- **Panneaux redimensionnables** : `src/scripts/resize.ts` (barre latérale, file d'attente/journal, galerie), tailles mémorisées dans localStorage, double-clic sur une poignée = taille par défaut.

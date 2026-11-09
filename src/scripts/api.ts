@@ -1,17 +1,23 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
+export type ImageFormat = 'png' | 'jpg' | 'webp' | 'avif';
+export type VideoFormat = 'h264' | 'h265' | 'vp9' | 'av1';
 export type Settings = {
   destDir: string;
   parallel: number;
   optimizePng: boolean;
   reencodeVideo: boolean;
   videoCrf: number;
+  imageFormat: ImageFormat;
+  videoFormat: VideoFormat;
+  imageQuality: number;
 };
+type FormatChoice = { imageFormat?: ImageFormat; videoFormat?: VideoFormat };
 export type JobRequest =
-  | { kind: 'google'; query: string; limit: number }
-  | { kind: 'xLikes'; limit: number }
-  | { kind: 'redditSaved'; limit: number };
+  | ({ kind: 'google'; query: string; limit: number } & FormatChoice)
+  | ({ kind: 'xLikes'; limit: number } & FormatChoice)
+  | ({ kind: 'redditSaved'; limit: number } & FormatChoice);
 export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
 export type JobKind = 'google' | 'xLikes' | 'redditSaved';
 export type JobInfo = {

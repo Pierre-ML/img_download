@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::auth::{self, Provider};
 use crate::pipeline::{self, sanitize_filename};
-use crate::settings;
+use crate::settings::{self, ImageFormat, VideoFormat};
 use crate::sources::{self, now_ms, JobLogger, SourceCtx};
 
 const RECENT_MAX: usize = 500;
@@ -23,11 +23,53 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 // ── Types exposés au frontend ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum JobRequest {
-    Google { query: String, limit: u32 },
-    XLikes { limit: u32 },
-    RedditSaved { limit: u32 },
+    Google {
+        query: String,
+        limit: u32,
+        #[serde(default)]
+        image_format: Option<ImageFormat>,
+        #[serde(default)]
+        video_format: Option<VideoFormat>,
+    },
+    XLikes {
+        limit: u32,
+        #[serde(default)]
+        image_format: Option<ImageFormat>,
+        #[serde(default)]
+        video_format: Option<VideoFormat>,
+    },
+    RedditSaved {
+        limit: u32,
+        #[serde(default)]
+        image_format: Option<ImageFormat>,
+        #[serde(default)]
+        video_format: Option<VideoFormat>,
+    },
+}
+
+impl JobRequest {
+    /// Formats choisis pour ce job (None = valeur des Réglages).
+    fn formats(&self) -> (Option<ImageFormat>, Option<VideoFormat>) {
+        match self {
+            JobRequest::Google {
+                image_format,
+                video_format,
+                ..
+            }
+            | JobRequest::XLikes {
+                image_format,
+                video_format,
+                ..
+            }
+            | JobRequest::RedditSaved {
+                image_format,
+                video_format,
+                ..
+            } => (*image_format, *video_format),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -391,6 +433,7 @@ async fn run_job(
             _ = source_cancel.cancelled() => Ok(()),
         }
     };
+    let (job_image, job_video) = request.formats();
     let cfg = pipeline::PipelineCfg {
         ffmpeg,
         dest_dir,
@@ -399,6 +442,9 @@ async fn run_job(
         optimize_png: s.optimize_png,
         reencode_video: s.reencode_video,
         video_crf: s.video_crf,
+        image_format: job_image.unwrap_or(s.image_format),
+        video_format: job_video.unwrap_or(s.video_format),
+        image_quality: s.image_quality,
         limit: info.limit,
     };
     let pipe = pipeline::run(
@@ -438,21 +484,31 @@ pub async fn queue_add(
     request: JobRequest,
 ) -> Result<JobInfo, String> {
     let request = match request {
-        JobRequest::Google { query, limit } => {
+        JobRequest::Google {
+            query,
+            limit,
+            image_format,
+            video_format,
+        } => {
             let query = query.trim().to_string();
             if query.is_empty() {
                 return Err("Mot-clé vide".into());
             }
-            JobRequest::Google { query, limit }
+            JobRequest::Google {
+                query,
+                limit,
+                image_format,
+                video_format,
+            }
         }
         other => other,
     };
     let (kind, label, limit) = match &request {
-        JobRequest::Google { query, limit } => {
+        JobRequest::Google { query, limit, .. } => {
             (JobKind::Google, format!("Google : {query}"), *limit)
         }
-        JobRequest::XLikes { limit } => (JobKind::XLikes, "Likes X".to_string(), *limit),
-        JobRequest::RedditSaved { limit } => (
+        JobRequest::XLikes { limit, .. } => (JobKind::XLikes, "Likes X".to_string(), *limit),
+        JobRequest::RedditSaved { limit, .. } => (
             JobKind::RedditSaved,
             "Reddit enregistrés".to_string(),
             *limit,
@@ -580,5 +636,29 @@ pub async fn cancel_all(app: &AppHandle, timeout: Duration) {
             return;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+#[cfg(test)]
+mod request_tests {
+    use super::*;
+
+    #[test]
+    fn job_request_with_formats() {
+        let r: JobRequest = serde_json::from_str(
+            r#"{"kind":"google","query":"chat","limit":50,"imageFormat":"webp","videoFormat":"av1"}"#,
+        )
+        .unwrap();
+        assert_eq!(r.formats(), (Some(ImageFormat::Webp), Some(VideoFormat::Av1)));
+    }
+
+    #[test]
+    fn job_request_without_formats() {
+        let r: JobRequest = serde_json::from_str(r#"{"kind":"xLikes","limit":5}"#).unwrap();
+        assert_eq!(r.formats(), (None, None));
+        let r: JobRequest =
+            serde_json::from_str(r#"{"kind":"redditSaved","limit":0,"imageFormat":"jpg"}"#)
+                .unwrap();
+        assert_eq!(r.formats(), (Some(ImageFormat::Jpg), None));
     }
 }

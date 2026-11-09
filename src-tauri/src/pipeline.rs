@@ -13,6 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::ffmpeg;
 use crate::queue::{DownloadedStore, JobHandle, MediaKind, MediaSaved};
+use crate::settings::{ImageFormat, VideoFormat};
 use crate::sources::{JobLogger, MediaCandidate};
 
 const MAX_NAME: usize = 120;
@@ -25,6 +26,9 @@ pub struct PipelineCfg {
     pub optimize_png: bool,
     pub reencode_video: bool,
     pub video_crf: u32,
+    pub image_format: ImageFormat,
+    pub video_format: VideoFormat,
+    pub image_quality: u32,
     pub limit: u32,
 }
 
@@ -162,8 +166,10 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
     let tmp = &ctx.cfg.tmp_dir;
     let raw = tmp.join(format!("{id}.src"));
     let audio_path = tmp.join(format!("{id}.audio"));
-    let png = tmp.join(format!("{id}.png"));
-    let mp4 = tmp.join(format!("{id}.mp4"));
+    let img_ext = ffmpeg::image_ext(ctx.cfg.image_format);
+    let vid_ext = ffmpeg::video_ext(ctx.cfg.video_format);
+    let png = tmp.join(format!("{id}.{img_ext}"));
+    let mp4 = tmp.join(format!("{id}.{vid_ext}"));
     let _guard = TmpFiles(vec![
         raw.clone(),
         audio_path.clone(),
@@ -176,7 +182,15 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
 
     let (out, kind, dims) = match classify(&raw).await? {
         Kind::Image => {
-            let d = ffmpeg::to_png(ff, &raw, &png, ctx.cfg.optimize_png).await?;
+            let d = ffmpeg::to_image(
+                ff,
+                &raw,
+                &png,
+                ctx.cfg.image_format,
+                ctx.cfg.image_quality,
+                ctx.cfg.optimize_png,
+            )
+            .await?;
             (png.clone(), MediaKind::Image, Some(d))
         }
         Kind::Video { forced } => {
@@ -191,11 +205,12 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
                 },
                 None => None,
             };
-            let res = ffmpeg::to_mp4(
+            let res = ffmpeg::to_video(
                 ff,
                 &raw,
                 audio,
                 &mp4,
+                ctx.cfg.video_format,
                 ctx.cfg.reencode_video,
                 ctx.cfg.video_crf,
                 forced,
@@ -206,9 +221,17 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
                     let d = ffmpeg::video_dimensions(ff, &mp4).await;
                     (mp4.clone(), MediaKind::Video, d)
                 }
-                // Animation non décodable : on garde la 1re image en PNG
+                // Animation non décodable : on garde la 1re image (format image choisi)
                 Err(_) if forced => {
-                    let d = ffmpeg::to_png(ff, &raw, &png, ctx.cfg.optimize_png).await?;
+                    let d = ffmpeg::to_image(
+                        ff,
+                        &raw,
+                        &png,
+                        ctx.cfg.image_format,
+                        ctx.cfg.image_quality,
+                        ctx.cfg.optimize_png,
+                    )
+                    .await?;
                     (png.clone(), MediaKind::Image, Some(d))
                 }
                 Err(e) => return Err(e),
@@ -219,9 +242,9 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
     let hash = sha256_file(&out).await?;
     let bytes = tokio::fs::metadata(&out).await?.len();
     let ext = if kind == MediaKind::Image {
-        "png"
+        img_ext
     } else {
-        "mp4"
+        vid_ext
     };
 
     // Réservation du nom final et du compteur sous verrou

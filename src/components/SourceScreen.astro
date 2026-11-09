@@ -22,10 +22,18 @@ const { id, animal, title, description, account, action } = Astro.props;
       </div>
       <button id={`${id}-connect`} type="button" class="button-ghost">Connecter {account}</button>
     </div>
-    <div class="flex items-end gap-4 border-t border-border pt-4">
-      <div class="w-40">
+    <div class="flex flex-wrap items-end gap-4 border-t border-border pt-4">
+      <div class="w-32">
         <label class="field-label" for={`${id}-limit`}>Limite (0 = tout)</label>
         <input id={`${id}-limit`} class="field" type="number" min="0" value="0" />
+      </div>
+      <div class="w-40">
+        <label class="field-label" for={`${id}-image-format`}>Images</label>
+        <select id={`${id}-image-format`} class="field" data-format="image"></select>
+      </div>
+      <div class="w-40">
+        <label class="field-label" for={`${id}-video-format`}>Vidéos</label>
+        <select id={`${id}-video-format`} class="field" data-format="video"></select>
       </div>
       <button id={`${id}-add`} type="button" class="button-primary ml-auto" disabled>{action}</button>
     </div>

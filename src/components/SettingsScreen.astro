@@ -22,18 +22,66 @@ import ScreenHeader from './ScreenHeader.astro';
       <input id="set-parallel" class="field !w-24 text-center" type="number" min="1" max="16" value="4" />
     </div>
 
+    <div class="border-t border-border pt-4">
+      <span class="field-label">Formats de sortie</span>
+      <div class="rounded-lg border border-border bg-bg p-3 text-xs text-muted">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-fg">Meilleure qualité</span>
+          <span class="pill">PNG (images)</span>
+          <span class="pill">MP4 H.264 sans ré-encodage (vidéos)</span>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <span class="text-fg">Plus léger</span>
+          <span class="pill">AVIF (images)</span>
+          <span class="pill">WebM AV1 (vidéos)</span>
+        </div>
+        <p class="mt-2">
+          PNG est sans perte mais lourd. AVIF est environ 50 % plus léger que JPG à qualité égale. AV1 est 30 à 50 % plus léger que H.264 mais l'encodage est plus lent. WebP et H.265 sont de bons compromis.
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <label class="field-label" for="set-image-format">Format des images</label>
+      <select id="set-image-format" class="field">
+        <option value="png">PNG — sans perte, qualité maximale</option>
+        <option value="jpg">JPG — compatible partout</option>
+        <option value="webp">WebP — bon compromis</option>
+        <option value="avif">AVIF — le plus léger</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="mb-1.5 flex items-center justify-between">
+        <label class="field-label !mb-0" for="set-image-quality">Qualité des images</label>
+        <span id="set-image-quality-val" class="text-sm font-medium tabular-nums">85</span>
+      </div>
+      <input id="set-image-quality" type="range" min="50" max="100" step="1" value="85" class="w-full accent-fg disabled:opacity-40" />
+      <div class="mt-1 flex justify-between text-[11px] text-muted"><span>50 · plus léger</span><span>100 · meilleure qualité</span></div>
+    </div>
+
     <div class="flex items-center justify-between gap-4">
       <div>
         <label class="field-label !mb-0" for="set-png">Optimiser les PNG</label>
-        <span class="text-xs text-muted">Compression sans perte (oxipng), plus lent mais plus léger</span>
+        <span class="text-xs text-muted">Compression sans perte (oxipng), plus lent mais plus léger. Uniquement pour le format PNG.</span>
       </div>
       <input id="set-png" type="checkbox" class="toggle-switch" checked />
+    </div>
+
+    <div>
+      <label class="field-label" for="set-video-format">Format des vidéos</label>
+      <select id="set-video-format" class="field">
+        <option value="h264">MP4 H.264 — qualité et compatibilité maximales</option>
+        <option value="h265">MP4 H.265 — ~40 % plus léger, même qualité</option>
+        <option value="vp9">WebM VP9 — léger, standard du web</option>
+        <option value="av1">WebM AV1 — le plus léger, encodage lent</option>
+      </select>
     </div>
 
     <div class="flex items-center justify-between gap-4">
       <div>
         <label class="field-label !mb-0" for="set-reencode">Ré-encoder les vidéos</label>
-        <span class="text-xs text-muted">Convertit en MP4 H.264 ; sinon la vidéo est simplement copiée si possible</span>
+        <span id="set-reencode-help" class="text-xs text-muted">Convertit en MP4 H.264 ; sinon la vidéo est simplement copiée si possible</span>
       </div>
       <input id="set-reencode" type="checkbox" class="toggle-switch" checked />
     </div>

@@ -61,7 +61,7 @@ function makeTile(m: MediaSaved): HTMLElement {
     tile.appendChild(play);
   }
 
-  const dims = m.width && m.height ? `${m.width}×${m.height}` : m.kind === 'video' ? 'MP4' : '';
+  const dims = m.width && m.height ? `${m.width}×${m.height}` : m.kind === 'video' ? (m.path.split('.').pop() ?? 'MP4').toUpperCase() : '';
   if (dims) {
     const b = document.createElement('span');
     b.className =

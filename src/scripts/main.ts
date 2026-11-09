@@ -7,6 +7,7 @@ import { initSettings } from './settings';
 import { initQueue } from './queue';
 import { initGallery } from './gallery';
 import { initUpdate } from './update';
+import { initResize } from './resize';
 
 async function initFfmpeg(): Promise<void> {
   const dot = document.getElementById('ffmpeg-dot')!;
@@ -34,6 +35,7 @@ async function initFfmpeg(): Promise<void> {
 async function boot(): Promise<void> {
   state.tauri = inTauri();
   document.getElementById('browser-banner')!.hidden = state.tauri;
+  initResize();
   initNav();
   initSources();
   initUpdate();

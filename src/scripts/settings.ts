@@ -1,4 +1,4 @@
-import { getSettings, saveSettings, appUninstall, errMsg, type Settings } from './api';
+import { getSettings, saveSettings, appUninstall, errMsg, type Settings, type ImageFormat, type VideoFormat } from './api';
 import { toast } from './toast';
 import { state } from './state';
 
@@ -6,15 +6,38 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 let current: Settings | null = null;
 
+/** Réglages courants (null tant qu'ils ne sont pas chargés). */
+export const currentSettings = (): Settings | null => current;
+
+/** Active/désactive les contrôles selon les formats choisis. */
+function syncFormatControls(): void {
+  const img = $<HTMLSelectElement>('set-image-format').value;
+  const vid = $<HTMLSelectElement>('set-video-format').value;
+  const h264 = vid === 'h264';
+  const reencode = $<HTMLInputElement>('set-reencode');
+  $<HTMLInputElement>('set-image-quality').disabled = img === 'png';
+  $<HTMLInputElement>('set-png').disabled = img !== 'png';
+  reencode.disabled = !h264;
+  $('set-reencode-help').textContent = h264
+    ? 'Convertit en MP4 H.264 ; sinon la vidéo est simplement copiée si possible'
+    : 'Ce format est toujours ré-encodé (option réservée au MP4 H.264)';
+  $<HTMLInputElement>('set-crf').disabled = h264 && !reencode.checked;
+}
+
 function fill(s: Settings): void {
   current = s;
+  $<HTMLSelectElement>('set-image-format').value = s.imageFormat;
+  $<HTMLSelectElement>('set-video-format').value = s.videoFormat;
+  $<HTMLInputElement>('set-image-quality').value = String(s.imageQuality);
+  $('set-image-quality-val').textContent = String(s.imageQuality);
   $<HTMLInputElement>('set-dest').value = s.destDir;
   $<HTMLInputElement>('set-parallel').value = String(s.parallel);
   $<HTMLInputElement>('set-png').checked = s.optimizePng;
   $<HTMLInputElement>('set-reencode').checked = s.reencodeVideo;
   $<HTMLInputElement>('set-crf').value = String(s.videoCrf);
   $('set-crf-val').textContent = String(s.videoCrf);
-  $<HTMLInputElement>('set-crf').disabled = !s.reencodeVideo;
+  syncFormatControls();
+  document.dispatchEvent(new CustomEvent<Settings>('settings-changed', { detail: s }));
 }
 
 function read(): Settings {
@@ -25,6 +48,9 @@ function read(): Settings {
     optimizePng: $<HTMLInputElement>('set-png').checked,
     reencodeVideo: $<HTMLInputElement>('set-reencode').checked,
     videoCrf: clamp(parseInt($<HTMLInputElement>('set-crf').value, 10), 18, 35, 23),
+    imageFormat: $<HTMLSelectElement>('set-image-format').value as ImageFormat,
+    videoFormat: $<HTMLSelectElement>('set-video-format').value as VideoFormat,
+    imageQuality: clamp(parseInt($<HTMLInputElement>('set-image-quality').value, 10), 50, 100, 85),
   };
 }
 
@@ -64,9 +90,12 @@ export async function initSettings(): Promise<void> {
   $<HTMLInputElement>('set-crf').addEventListener('input', (e) => {
     $('set-crf-val').textContent = (e.target as HTMLInputElement).value;
   });
-  $<HTMLInputElement>('set-reencode').addEventListener('change', (e) => {
-    $<HTMLInputElement>('set-crf').disabled = !(e.target as HTMLInputElement).checked;
+  $<HTMLInputElement>('set-image-quality').addEventListener('input', (e) => {
+    $('set-image-quality-val').textContent = (e.target as HTMLInputElement).value;
   });
+  $<HTMLInputElement>('set-reencode').addEventListener('change', syncFormatControls);
+  $<HTMLSelectElement>('set-image-format').addEventListener('change', syncFormatControls);
+  $<HTMLSelectElement>('set-video-format').addEventListener('change', syncFormatControls);
   $('set-save').addEventListener('click', () => void save());
   $('app-uninstall').addEventListener('click', () => void uninstall());
 

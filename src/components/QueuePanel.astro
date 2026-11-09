@@ -2,8 +2,9 @@
 import Animal from './Animal.astro';
 ---
 
-<aside class="flex w-[360px] shrink-0 flex-col border-l border-border bg-surface">
-  <section class="flex min-h-0 flex-[3] flex-col">
+<aside id="queue-panel" class="relative flex w-[360px] shrink-0 flex-col border-l border-border bg-surface">
+  <div class="resize-handle resize-handle-x left-0 -translate-x-1/2" data-resize="queue" role="separator" aria-orientation="vertical" aria-label="Redimensionner le panneau de la file d'attente" tabindex="0" aria-valuenow="360" aria-valuemin="260" aria-valuemax="720"></div>
+  <section id="queue-top" class="flex min-h-0 flex-[3] flex-col">
     <header class="flex items-center justify-between px-4 py-3">
       <h2 class="text-sm font-medium">File d'attente</h2>
       <button id="queue-clear" type="button" class="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-white/5 hover:text-fg disabled:opacity-40" disabled>Vider terminés</button>
@@ -17,7 +18,8 @@ import Animal from './Animal.astro';
     </div>
   </section>
 
-  <section class="flex min-h-0 flex-[2] flex-col border-t border-border">
+  <section id="queue-bottom" class="relative flex min-h-0 flex-[2] flex-col border-t border-border">
+    <div class="resize-handle resize-handle-y top-0 -translate-y-1/2" data-resize="queueSplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionner la file d'attente et le journal" tabindex="0" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>
     <header class="flex items-center justify-between px-4 py-2.5">
       <h2 class="text-sm font-medium">Journal</h2>
       <button id="log-clear" type="button" class="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-white/5 hover:text-fg">Effacer</button>
