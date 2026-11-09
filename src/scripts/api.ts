@@ -73,3 +73,17 @@ export const onMediaSaved = (cb: (m: MediaSaved) => void): Promise<UnlistenFn> =
   listen<MediaSaved>('media-saved', (e) => cb(e.payload));
 export const onAccountChanged = (cb: (a: AccountStatus) => void): Promise<UnlistenFn> =>
   listen<AccountStatus>('account-changed', (e) => cb(e.payload));
+
+export type UpdateInfo = {
+  current: string;
+  latest: string | null;
+  available: boolean;
+  notes: string | null;
+  url: string | null;
+};
+export type UpdateProgress = { downloaded: number; total: number | null };
+
+export const appCheckUpdate = () => invoke<UpdateInfo>('app_check_update');
+export const appInstallUpdate = () => invoke<null>('app_install_update');
+export const onUpdateProgress = (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
+  listen<UpdateProgress>('app-update-progress', (e) => cb(e.payload));

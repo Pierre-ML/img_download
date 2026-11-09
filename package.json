@@ -10,7 +10,9 @@
     "check": "astro check",
     "tauri": "tauri",
     "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
-    "bump": "node scripts/bump-version.mjs"
+    "bump": "node scripts/bump-version.mjs",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build && node scripts/build-updater.mjs && node scripts/name-installers.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",

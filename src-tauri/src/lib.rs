@@ -4,6 +4,7 @@ mod pipeline;
 mod queue;
 mod settings;
 mod sources;
+mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,6 +29,8 @@ pub fn run() {
             auth::account_status,
             auth::account_login,
             auth::account_logout,
+            updater::app_check_update,
+            updater::app_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");

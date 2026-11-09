@@ -2,10 +2,12 @@
 
 ## Vue d'ensemble
 
-Application desktop (Tauri 2) de téléchargement de médias : Google Images, likes X, posts enregistrés Reddit. Les images sont converties en PNG, les vidéos/GIF en MP4 via ffmpeg (sidecar).
+Application desktop **Windows uniquement** (Tauri 2) de téléchargement de médias : Google Images, likes X, posts enregistrés Reddit. Les images sont converties en PNG, les vidéos/GIF en MP4 via ffmpeg (sidecar).
 - `src/` : frontend Astro + Tailwind v4, TypeScript vanilla (pas de framework JS)
 - `src-tauri/` : cœur Rust (file d'attente, sources, pipeline, auth)
 - `scripts/fetch-ffmpeg.mjs` : récupère le binaire ffmpeg sidecar
+- `scripts/build-updater.mjs`, `name-installers.mjs` : produisent `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe`
+- `src-tauri/windows/` : template NSIS personnalisé (setup + mode updater) et hooks
 
 ## Architecture
 
@@ -27,11 +29,15 @@ img_download/
 ├── package.json, astro.config.mjs, tsconfig.json
 ├── app-icon.svg / app-icon.png      # source des icônes (npx @tauri-apps/cli icon)
 ├── scripts/fetch-ffmpeg.mjs         # ffmpeg → src-tauri/binaries/ffmpeg-<triple>[.exe]
-├── .github/workflows/               # release.yml (build + release auto sur push main), check.yml (CI)
+├── scripts/build-updater.mjs        # recompile le NSIS rendu avec /DMDL_UPDATER → exe de mise à jour
+├── scripts/name-installers.mjs      # noms fixes → src-tauri/target/release/bundle/release/
+├── scripts/bump-version.mjs         # version : package.json, package-lock.json, tauri.conf.json, Cargo.toml/lock
+├── .github/workflows/               # release.yml (build Windows + release auto sur push main), check.yml (CI Windows)
 ├── src/                             # Frontend Astro (pages, composants, TS, styles Tailwind v4)
 └── src-tauri/
     ├── Cargo.toml, build.rs, tauri.conf.json, capabilities/default.json
     ├── icons/, binaries/ (gitignoré)
+    ├── windows/                     # installer.nsi (template NSIS : setup + updater), hooks.nsh
     └── src/
         ├── main.rs, lib.rs          # point d'entrée, enregistrement des commandes
         ├── settings.rs              # Settings (settings.json)
@@ -60,12 +66,12 @@ img_download/
 ```bash
 npm install
 npm run fetch-ffmpeg -- --from-path   # une fois (ffmpeg du PATH), ou sans option pour télécharger
-npm run tauri dev
-npm run tauri build                   # installeur
+npm run desktop:dev                   # = tauri dev
+npm run desktop:build                 # tauri build + build-updater + name-installers → 2 exe
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de release déclenche build + release GitHub publiée (`release.yml`). Pour publier : `npm run bump -- patch`, commit, push.
+Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de tag `vX.Y.Z` déclenche `release.yml` (Windows) : build `npm run desktop:build` puis release GitHub avec `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe`. Pour publier : `npm run bump -- patch`, commit, push `main`. Le workflow échoue si les versions (tauri.conf.json, package.json, package-lock.json, Cargo.toml) divergent.
 
 ## Ajouter une source
 
@@ -78,6 +84,7 @@ Règles d'une source : s'arrêter si `tx.send` échoue ou si `ctx.cancel` est le
 
 ## Points d'attention
 
+- **Installateurs Windows** : `src-tauri/windows/installer.nsi` est un template NSIS personnalisé (basé sur celui de tauri-bundler, modifications marquées `; MDL:`), installMode `currentUser`. Le même script produit deux exe : le SETUP (`tauri build`, première installation, refuse si déjà installé) et l'UPDATE (`build-updater.mjs`, `/DMDL_UPDATER` : copie par-dessus l'installation existante, relance l'app une fois). Contrat avec `updater.rs` : l'app télécharge `releases/latest/download/MediaDownloader-Update.exe` et le lance avec `/MDL_WAITPID=<pid>` ; le `.onInit` attend ce PID (15 s max). Noms d'assets à ne pas changer sans mettre à jour `updater.rs`. `mainBinaryName` = `media-downloader`. Le sidecar `ffmpeg.exe` est installé/supprimé via `externalBin`.
 - **ffmpeg sidecar** : `bundle.externalBin = ["binaries/ffmpeg"]` ; le fichier `ffmpeg-<triple>[.exe]` doit exister avant `tauri dev/build` (`fetch-ffmpeg`). À l'exécution : `ffmpeg[.exe]` à côté de `current_exe()`, sinon le PATH.
 - **`cookies_for_url`** (webview Tauri) : à n'appeler qu'en contexte **async** sur Windows, sinon deadlock.
 - **X** : le `queryId` GraphQL périme régulièrement ; en cas d'erreur 400/404 sur les likes, le re-extraire du bundle JS de x.com.

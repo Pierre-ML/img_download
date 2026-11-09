@@ -54,4 +54,22 @@ const toggleCls =
       <button id="set-save" type="button" class="btn-primary">Enregistrer</button>
     </div>
   </div>
+  <div class="card mt-5 flex flex-col gap-4">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <span class="label !mb-0">Mises à jour</span>
+        <span class="text-xs text-muted">Version actuelle : <span id="upd-current" class="font-medium text-ink">—</span></span>
+      </div>
+      <div class="flex gap-2">
+        <button id="upd-notes" type="button" class="btn-ghost shrink-0" hidden>Notes de version</button>
+        <button id="upd-install" type="button" class="btn-primary shrink-0" hidden>Installer</button>
+        <button id="upd-check" type="button" class="btn-ghost shrink-0">Vérifier les mises à jour</button>
+      </div>
+    </div>
+    <p id="upd-status" class="text-sm text-muted" role="status"></p>
+    <div id="upd-progress" hidden>
+      <progress id="upd-progress-bar" class="h-2 w-full overflow-hidden rounded-full accent-accent" max="1"></progress>
+      <p id="upd-progress-text" class="mt-1.5 text-xs text-muted"></p>
+    </div>
+  </div>
 </section>

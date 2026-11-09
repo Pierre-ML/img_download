@@ -6,6 +6,7 @@ import { initAccounts } from './accounts';
 import { initSettings } from './settings';
 import { initQueue } from './queue';
 import { initGallery } from './gallery';
+import { initUpdate } from './update';
 
 async function initFfmpeg(): Promise<void> {
   const dot = document.getElementById('ffmpeg-dot')!;
@@ -35,6 +36,7 @@ async function boot(): Promise<void> {
   document.getElementById('browser-banner')!.hidden = state.tauri;
   initNav();
   initSources();
+  initUpdate();
   await Promise.allSettled([initAccounts(), initSettings(), initQueue(), initGallery(), initFfmpeg()]);
 }
 

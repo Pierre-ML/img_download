@@ -541,3 +541,43 @@ pub async fn recent_media(
     };
     Ok(r.iter().take(n).cloned().collect())
 }
+
+/// Annule tous les jobs (en attente et en cours) puis attend, au plus `timeout`, que plus rien ne
+/// tourne : les ffmpeg lancés par les jobs sont tués à l'abandon des futurs (`kill_on_drop`).
+/// Utilisé avant l'installation d'une mise à jour (ffmpeg.exe verrouille le dossier d'installation).
+pub async fn cancel_all(app: &AppHandle, timeout: Duration) {
+    let Some(state) = app.try_state::<QueueState>() else {
+        return;
+    };
+    let q = state.0.clone();
+    let changed: Vec<JobInfo> = {
+        let mut jobs = lock(&q.jobs);
+        let mut out = Vec::new();
+        for e in jobs.iter_mut() {
+            match e.info.status {
+                JobStatus::Queued => {
+                    e.cancel.cancel();
+                    e.info.status = JobStatus::Cancelled;
+                    e.info.finished_at = Some(now_ms());
+                    out.push(e.info.clone());
+                }
+                JobStatus::Running => e.cancel.cancel(),
+                _ => {}
+            }
+        }
+        out
+    };
+    for info in &changed {
+        emit_job(app, info);
+    }
+    let deadline = tokio::time::Instant::now() + timeout;
+    while tokio::time::Instant::now() < deadline {
+        let running = lock(&q.jobs)
+            .iter()
+            .any(|e| e.info.status == JobStatus::Running);
+        if !running {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
