@@ -1,19 +1,12 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Environnements virtuels
-.venv/
-venv/
-env/
-
-# Dépendances
+# Node / Astro
 node_modules/
-frontend/dist/
-frontend/.astro/
+dist/
+.astro/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/gen/schemas/
 
 # OS
 .DS_Store
@@ -23,8 +16,5 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Téléchargements (ne pas committer les médias)
-downloads/
-
-# Identifiants locaux (Reddit, X) — jamais versionnés
-accounts.json
+# Logs
+*.log

@@ -1,0 +1,17 @@
+<section data-screen="google" class="mx-auto w-full max-w-2xl" hidden>
+  <h1 class="text-xl font-semibold tracking-tight">Google Images</h1>
+  <p class="mt-1 mb-5 text-sm text-muted">Télécharge les images d'une recherche, converties en PNG.</p>
+  <div class="card flex flex-col gap-4">
+    <div>
+      <label class="label" for="google-query">Mot-clé</label>
+      <input id="google-query" class="field" type="text" placeholder="ex. paysage montagne" autocomplete="off" />
+    </div>
+    <div class="flex items-end gap-4">
+      <div class="w-40">
+        <label class="label" for="google-limit">Nombre d'images</label>
+        <input id="google-limit" class="field" type="number" min="1" max="2000" value="50" />
+      </div>
+      <button id="google-add" type="button" class="btn-primary ml-auto" disabled>Ajouter à la file</button>
+    </div>
+  </div>
+</section>

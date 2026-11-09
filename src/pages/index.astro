@@ -1,0 +1,50 @@
+---
+import App from '../layouts/App.astro';
+import Sidebar from '../components/Sidebar.astro';
+import GoogleScreen from '../components/GoogleScreen.astro';
+import SourceScreen from '../components/SourceScreen.astro';
+import AccountsScreen from '../components/AccountsScreen.astro';
+import SettingsScreen from '../components/SettingsScreen.astro';
+import QueuePanel from '../components/QueuePanel.astro';
+import Gallery from '../components/Gallery.astro';
+---
+
+<App>
+  <div class="flex h-screen w-screen">
+    <Sidebar />
+
+    <main class="flex min-w-0 flex-1 flex-col">
+      <div id="browser-banner" class="border-b border-warn/30 bg-warn/10 px-6 py-2 text-center text-xs text-warn" hidden>
+        Mode navigateur : backend indisponible
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto px-6 py-8">
+        <GoogleScreen />
+        <SourceScreen
+          id="x"
+          title="Likes X"
+          description="Télécharge les médias (images, GIF, vidéos) de vos likes."
+          account="X"
+          action="Télécharger mes likes"
+        />
+        <SourceScreen
+          id="reddit"
+          title="Reddit enregistrés"
+          description="Télécharge les médias de vos posts enregistrés."
+          account="Reddit"
+          action="Télécharger mes enregistrés"
+        />
+        <AccountsScreen />
+        <SettingsScreen />
+      </div>
+      <Gallery />
+    </main>
+
+    <QueuePanel />
+  </div>
+
+  <div id="toasts" class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2"></div>
+
+  <script>
+    import '../scripts/main';
+  </script>
+</App>

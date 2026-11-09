@@ -1,0 +1,29 @@
+---
+const providers = [
+  { id: 'x', name: 'X', desc: 'Nécessaire pour télécharger vos likes.' },
+  { id: 'reddit', name: 'Reddit', desc: 'Nécessaire pour télécharger vos posts enregistrés.' },
+];
+---
+
+<section data-screen="accounts" class="mx-auto w-full max-w-2xl" hidden>
+  <h1 class="text-xl font-semibold tracking-tight">Comptes</h1>
+  <p class="mt-1 mb-5 text-sm text-muted">La connexion s'effectue dans une fenêtre intégrée ; vos cookies restent chiffrés sur cet ordinateur.</p>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {providers.map((p) => (
+      <div class="card flex flex-col gap-4">
+        <div class="flex items-center gap-2.5">
+          <span id={`acc-${p.id}-dot`} class="h-2.5 w-2.5 rounded-full bg-line"></span>
+          <h2 class="font-semibold">{p.name}</h2>
+        </div>
+        <div>
+          <div id={`acc-${p.id}-status`} class="text-sm text-muted">Non connecté</div>
+          <p class="mt-1 text-xs text-muted">{p.desc}</p>
+        </div>
+        <div class="mt-auto flex">
+          <button id={`acc-${p.id}-login`} type="button" class="btn-primary">Connecter {p.name}</button>
+          <button id={`acc-${p.id}-logout`} type="button" class="btn-danger" hidden>Déconnecter</button>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>

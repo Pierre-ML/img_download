@@ -1,0 +1,52 @@
+[package]
+name = "media-downloader"
+version = "5.0.0"
+description = "Media Downloader — Google Images, likes X, posts enregistrés Reddit"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "media_downloader_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "media-downloader"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli", "stream", "cookies"] }
+anyhow = "1"
+regex = "1"
+url = "2"
+infer = "0.22"
+sha2 = "0.10"
+hex = "0.4"
+oxipng = { version = "10", default-features = false, features = ["parallel"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+dirs = "6"
+urlencoding = "2"
+html-escape = "0.2"
+
+# oxipng est très lent sans optimisations : on l'optimise même en debug
+[profile.dev.package.oxipng]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
