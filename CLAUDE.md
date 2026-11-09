@@ -33,7 +33,11 @@ img_download/
 ├── scripts/name-installers.mjs      # noms fixes → src-tauri/target/release/bundle/release/
 ├── scripts/bump-version.mjs         # version : package.json, package-lock.json, tauri.conf.json, Cargo.toml/lock
 ├── .github/workflows/               # release.yml (build Windows + release auto sur push main), check.yml (CI Windows)
-├── src/                             # Frontend Astro (pages, composants, TS, styles Tailwind v4)
+├── src/                             # Frontend Astro (pages, composants, TS, styles Tailwind v4 + daisyUI)
+│   ├── lib/animals.ts               # animaux low-poly (viewBox 0 0 64 64)
+│   ├── components/Animal.astro      # rend un animal en SVG (currentColor)
+│   └── styles/global.css            # thème daisyUI « lucania » + tokens
+├── public/favicon.svg               # pie low-poly
 └── src-tauri/
     ├── Cargo.toml, build.rs, tauri.conf.json, capabilities/default.json
     ├── icons/, binaries/ (gitignoré)
@@ -59,7 +63,27 @@ img_download/
 - **Un module par source** dans `src-tauri/src/sources/`.
 - Erreurs Rust : `anyhow` en interne, `Result<T, String>` aux frontières des commandes.
 - Messages utilisateur en français.
-- Accent violet `#7c6af7`, fond très sombre.
+- Google Images : vraie recherche Google dans une fenêtre cachée (onglet Images, défilement) ; en cas de captcha, la fenêtre s'affiche pour le résoudre.
+
+## Direction artistique
+
+DA reprise de Lucania (même thème, mêmes polices système, mêmes rayons) : daisyUI + tokens dans `src/styles/global.css`.
+
+- Thème `lucania` : fonds `#0b0b0c` / `#141416` / `#1f1f22`, texte `#f2f2f3`, primaire blanc cassé (boutons pleins `bg-fg text-bg`), accent rouge `#e5383b` **réservé aux signaux** (erreurs, actions destructives, états critiques). Aucun violet.
+- Tokens Tailwind : `bg`, `fg`, `surface`, `border`, `muted`, `sidebar`, `code`, `danger` ; `success`/`warning` pour les états. Classes de composants : `panel`, `field`, `field-label`, `button-primary|ghost|danger`, `pill`, `toggle-switch`, `nav-item` (noms choisis pour ne pas entrer en collision avec les composants daisyUI : `card`, `btn`, `label`, `badge`, `switch`).
+- **Animaux** : `src/lib/animals.ts` (viewBox 0 0 64 64, `facets` {points, opacity}, `eyes`, `accents`) + `src/components/Animal.astro` (props `id`, `class`). Règles : tout en `currentColor` (aucune couleur, pas de rouge), décoratif (`aria-hidden`), pas d'animation, un animal par section, le loup reste réservé à Lucania. Motif titre : `ScreenHeader.astro` (animal `size-7` + titre) ; état vide : animal `size-14 text-fg/25` + texte.
+- **La pie** est le logo et la mascotte (l'oiseau qui collectionne ce qui brille) : sidebar, états vides (galerie, file), bandeau de mise à jour, favicon, icône de l'app (`app-icon.svg`, pie claire sur carré arrondi `#0b0b0c`).
+
+| Animal | Section |
+|---|---|
+| pie | logo, mascotte, états vides, bandeau de mise à jour |
+| hibou | Google Images |
+| corbeau | Likes X |
+| renard | Reddit enregistrés |
+| aigle | Comptes |
+| cerf | Réglages |
+
+hibou, corbeau, renard, aigle et cerf sont copiés à l'identique de Lucania ; seule la pie est propre à ce logiciel.
 
 ## Lancer en développement
 

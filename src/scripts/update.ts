@@ -15,7 +15,7 @@ const mb = (n: number) => (n / (1024 * 1024)).toFixed(1).replace('.', ',');
 function setStatus(text: string, tone: 'muted' | 'ok' | 'accent' | 'err' = 'muted'): void {
   const el = $('upd-status');
   el.textContent = text;
-  el.className = `text-sm ${tone === 'ok' ? 'text-ok' : tone === 'accent' ? 'text-accent' : tone === 'err' ? 'text-err' : 'text-muted'}`;
+  el.className = `text-sm ${tone === 'ok' ? 'text-success' : tone === 'accent' ? 'text-fg' : tone === 'err' ? 'text-danger' : 'text-muted'}`;
 }
 
 function render(): void {

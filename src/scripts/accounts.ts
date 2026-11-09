@@ -16,22 +16,22 @@ function render(): void {
 
     if (pending[p]) {
       status.textContent = 'Fenêtre de connexion ouverte…';
-      status.className = 'text-sm text-warn';
-      dot.className = 'h-2.5 w-2.5 rounded-full bg-warn animate-pulse';
+      status.className = 'text-sm text-warning';
+      dot.className = 'size-2.5 rounded-full bg-warning animate-pulse';
       login.disabled = true;
       login.textContent = 'En attente…';
       login.hidden = false;
       logout.hidden = true;
     } else if (info?.connected) {
       status.textContent = `Connecté${info.username ? ' · @' + info.username : ''}`;
-      status.className = 'text-sm text-ok';
-      dot.className = 'h-2.5 w-2.5 rounded-full bg-ok';
+      status.className = 'text-sm text-success';
+      dot.className = 'size-2.5 rounded-full bg-success';
       login.hidden = true;
       logout.hidden = false;
     } else {
       status.textContent = 'Non connecté';
       status.className = 'text-sm text-muted';
-      dot.className = 'h-2.5 w-2.5 rounded-full bg-line';
+      dot.className = 'size-2.5 rounded-full bg-border';
       login.disabled = !state.tauri;
       login.textContent = `Connecter ${NAMES[p]}`;
       login.hidden = false;

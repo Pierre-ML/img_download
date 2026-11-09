@@ -1,11 +1,18 @@
-<section class="flex h-[46%] min-h-[220px] flex-col border-t border-line bg-surface/50">
+---
+import Animal from './Animal.astro';
+---
+
+<section class="flex h-[46%] min-h-[220px] flex-col border-t border-border bg-surface/50">
   <header class="flex items-center gap-2 px-6 py-2.5">
-    <h2 class="text-sm font-semibold">Galerie</h2>
-    <span id="gallery-count" class="rounded-full bg-surface-3 px-2 text-xs text-muted empty:hidden"></span>
+    <h2 class="text-sm font-medium">Galerie</h2>
+    <span id="gallery-count" class="rounded-full bg-fg/10 px-2 text-xs text-muted empty:hidden"></span>
     <span class="ml-auto text-xs text-muted">Cliquer sur une vignette pour l'afficher dans le dossier</span>
   </header>
   <div id="gallery-scroll" class="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
     <div id="gallery-grid" class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2"></div>
-    <p id="gallery-empty" class="py-10 text-center text-sm text-muted">Les médias téléchargés apparaîtront ici.</p>
+    <div id="gallery-empty" class="flex flex-col items-center py-8 text-center">
+      <Animal id="pie" class="mb-3 size-14 shrink-0 text-fg/25" />
+      <p class="text-sm text-muted">Les médias téléchargés apparaîtront ici.</p>
+    </div>
   </div>
 </section>

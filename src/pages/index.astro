@@ -6,6 +6,7 @@ import SourceScreen from '../components/SourceScreen.astro';
 import AccountsScreen from '../components/AccountsScreen.astro';
 import SettingsScreen from '../components/SettingsScreen.astro';
 import QueuePanel from '../components/QueuePanel.astro';
+import Animal from '../components/Animal.astro';
 import Gallery from '../components/Gallery.astro';
 ---
 
@@ -14,19 +15,21 @@ import Gallery from '../components/Gallery.astro';
     <Sidebar />
 
     <main class="flex min-w-0 flex-1 flex-col">
-      <div id="browser-banner" class="border-b border-warn/30 bg-warn/10 px-6 py-2 text-center text-xs text-warn" hidden>
+      <div id="browser-banner" class="border-b border-warning/30 bg-warning/10 px-6 py-2 text-center text-xs text-warning" hidden>
         Mode navigateur : backend indisponible
       </div>
-      <div id="upd-banner" class="flex items-center justify-center gap-3 border-b border-accent/30 bg-accent-soft px-6 py-2 text-xs" hidden>
-        <span id="upd-banner-text" class="font-medium text-ink"></span>
-        <button id="upd-banner-install" type="button" class="btn-primary !px-3 !py-1 !text-xs">Installer</button>
-        <button id="upd-banner-later" type="button" class="btn-ghost !px-3 !py-1 !text-xs">Plus tard</button>
-        <button id="upd-banner-notes" type="button" class="text-accent underline hover:text-accent-hover" hidden>Notes de version</button>
+      <div id="upd-banner" class="flex items-center justify-center gap-3 border-b border-border bg-surface px-6 py-2 text-xs" hidden>
+        <Animal id="pie" class="size-5 shrink-0 text-fg" />
+        <span id="upd-banner-text" class="font-medium text-fg"></span>
+        <button id="upd-banner-install" type="button" class="button-primary button-sm">Installer</button>
+        <button id="upd-banner-later" type="button" class="button-ghost button-sm">Plus tard</button>
+        <button id="upd-banner-notes" type="button" class="text-fg underline decoration-fg/30 underline-offset-2 transition-colors hover:decoration-fg" hidden>Notes de version</button>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-6 py-8">
         <GoogleScreen />
         <SourceScreen
           id="x"
+          animal="corbeau"
           title="Likes X"
           description="Télécharge les médias (images, GIF, vidéos) de vos likes."
           account="X"
@@ -34,6 +37,7 @@ import Gallery from '../components/Gallery.astro';
         />
         <SourceScreen
           id="reddit"
+          animal="renard"
           title="Reddit enregistrés"
           description="Télécharge les médias de vos posts enregistrés."
           account="Reddit"

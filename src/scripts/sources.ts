@@ -38,11 +38,11 @@ export function renderSourceAccounts(): void {
     const connect = document.getElementById(`${p}-connect`)!;
     if (info?.connected) {
       status.textContent = `Connecté${info.username ? ' en tant que @' + info.username : ''}`;
-      status.className = 'text-ok';
+      status.className = 'text-sm text-success';
       connect.hidden = true;
     } else {
       status.textContent = 'Non connecté';
-      status.className = 'text-muted';
+      status.className = 'text-sm text-muted';
       connect.hidden = false;
     }
   }

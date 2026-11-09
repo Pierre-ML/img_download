@@ -29,7 +29,7 @@ function makeTile(m: MediaSaved): HTMLElement {
   const tile = document.createElement('button');
   tile.type = 'button';
   tile.className =
-    'group relative aspect-square overflow-hidden rounded-lg border border-line bg-surface-2 transition-colors hover:border-accent';
+    'group relative aspect-square overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-fg/40';
   const name = m.path.split(/[\\/]/).pop() ?? m.path;
   tile.title = name;
   tile.dataset.path = m.path;
@@ -65,7 +65,7 @@ function makeTile(m: MediaSaved): HTMLElement {
   if (dims) {
     const b = document.createElement('span');
     b.className =
-      'pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] tabular-nums text-ink opacity-0 transition-opacity group-hover:opacity-100';
+      'pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] tabular-nums text-fg opacity-0 transition-opacity group-hover:opacity-100';
     b.textContent = dims;
     tile.appendChild(b);
   }

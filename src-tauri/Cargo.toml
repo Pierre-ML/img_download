@@ -1,6 +1,6 @@
 [package]
 name = "media-downloader"
-version = "5.0.1"
+version = "5.1.0"
 description = "Media Downloader — Google Images, likes X, posts enregistrés Reddit"
 edition = "2021"
 rust-version = "1.80"

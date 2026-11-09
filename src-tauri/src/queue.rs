@@ -368,6 +368,7 @@ async fn run_job(
     // Annulé par l'utilisateur (parent) ou par le pipeline quand la limite est atteinte
     let source_cancel = cancel.child_token();
     let ctx = SourceCtx {
+        app: app.clone(),
         http: q.http.clone(),
         session,
         limit: info.limit,

@@ -4,12 +4,25 @@ Application de bureau **Windows** (Tauri 2 + Astro + Rust) pour télécharger de
 
 ## Fonctionnalités
 
-- **Google Images** : téléchargement par mot-clé.
+- **Google Images** : vraie recherche Google dans une fenêtre cachée (onglet Images, défilement) ; en cas de captcha, la fenêtre s'affiche pour le résoudre.
 - **Likes X** : médias des posts likés du compte connecté.
 - **Enregistrés Reddit** : médias des posts enregistrés du compte connecté.
 - **Conversion** : toutes les images en PNG (optimisation oxipng), vidéos et GIF animés en MP4 (H.264, faststart) via ffmpeg embarqué.
 - **Connexion intégrée** : fenêtre de login X / Reddit dans l'app, aucune clé API à créer.
 - File d'attente, déduplication entre les runs, galerie des médias récents.
+
+## Direction artistique
+
+Interface sombre reprise de [Lucania](https://github.com/Pierre-ML/Lucania) (daisyUI + Tailwind v4) : fonds `#0b0b0c` / `#141416` / `#1f1f22`, texte `#f2f2f3`, accent rouge `#e5383b` réservé aux signaux (erreurs, actions destructives). Les animaux low-poly (SVG en `currentColor`) illustrent chaque section ; la **pie**, l'oiseau qui collectionne ce qui brille, est le logo et la mascotte.
+
+| Animal | Section |
+|---|---|
+| pie | logo, mascotte, états vides |
+| hibou | Google Images |
+| corbeau | Likes X |
+| renard | Reddit enregistrés |
+| aigle | Comptes |
+| cerf | Réglages |
 
 ## Installation
 

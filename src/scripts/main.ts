@@ -18,15 +18,15 @@ async function initFfmpeg(): Promise<void> {
   try {
     const s = await ffmpegStatus();
     if (s.available) {
-      dot.className = 'h-2 w-2 rounded-full bg-ok';
+      dot.className = 'size-2 rounded-full bg-success';
       text.textContent = `ffmpeg ${s.version ?? ''}`.trim();
       text.title = s.path ?? '';
     } else {
-      dot.className = 'h-2 w-2 rounded-full bg-err';
+      dot.className = 'size-2 rounded-full bg-danger';
       text.textContent = 'ffmpeg introuvable';
     }
   } catch {
-    dot.className = 'h-2 w-2 rounded-full bg-err';
+    dot.className = 'size-2 rounded-full bg-danger';
     text.textContent = 'ffmpeg : erreur';
   }
 }

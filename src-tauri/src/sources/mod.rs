@@ -21,6 +21,8 @@ pub struct MediaCandidate {
 }
 
 pub struct SourceCtx {
+    /// Handle de l'application (fenêtres webview des sources, ex. Google)
+    pub app: AppHandle,
     /// UA Chrome desktop, gzip/brotli ; pas de cookie store
     pub http: reqwest::Client,
     pub session: Option<crate::auth::Session>,
