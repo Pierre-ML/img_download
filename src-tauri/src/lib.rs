@@ -31,6 +31,7 @@ pub fn run() {
             auth::account_logout,
             updater::app_check_update,
             updater::app_install_update,
+            updater::app_uninstall,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");

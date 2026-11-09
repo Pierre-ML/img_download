@@ -12,6 +12,8 @@
 //!      `/MDL_WAITPID=<pid de l'app>` : il attend la fin de ce processus avant de copier les fichiers ;
 //!   3. `app.exit(0)` après 300 ms. Filet : si la sortie normale n'a pas abouti 10 s plus tard,
 //!      le processus se termine lui-même (`TerminateProcess`).
+//! - `app_uninstall` : annule la file, lance `uninstall.exe` (à côté de l'exe) sans argument puis
+//!   ferme l'app (même séquence de sortie) ; partage la garde `INSTALLING`.
 //! - Une garde atomique (`INSTALLING`) refuse tout second lancement pendant une installation ;
 //!   elle n'est relâchée qu'en cas d'échec avant le lancement.
 
@@ -286,14 +288,60 @@ async fn install(app: tauri::AppHandle) -> Result<(), String> {
 
     // Lancé : la garde reste prise (aucun second lancement possible) jusqu'à la fermeture.
     guard.keep();
+    exit_soon(app);
+    Ok(())
+}
+
+/// Ferme l'app après `EXIT_DELAY` (réponse à la page), avec filet de terminaison forcée.
+#[cfg(windows)]
+fn exit_soon(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         std::thread::sleep(EXIT_DELAY);
         app.exit(0);
         // Sortie normale : le processus disparaît avant la fin de ce délai. Sinon il se termine
-        // lui-même pour que l'updater, qui attend sa fin, puisse copier les fichiers.
+        // lui-même pour que l'updater / le désinstalleur, qui attend sa fin, puisse continuer.
         std::thread::sleep(EXIT_FALLBACK);
         terminate_self();
     });
+}
+
+/// Désinstalle l'app : lance `uninstall.exe` (dossier de l'exe) puis ferme l'app.
+/// Refusé en dev ; partage la garde `INSTALLING` avec la mise à jour.
+#[tauri::command]
+pub async fn app_uninstall(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("Désinstallation disponible uniquement sous Windows.".into())
+    }
+    #[cfg(windows)]
+    {
+        uninstall(app).await
+    }
+}
+
+#[cfg(windows)]
+async fn uninstall(app: tauri::AppHandle) -> Result<(), String> {
+    if cfg!(debug_assertions) {
+        return Err("Désinstallation indisponible en mode développement.".into());
+    }
+    let guard = InstallGuard::acquire(&INSTALLING)
+        .ok_or_else(|| "Une mise à jour ou une désinstallation est déjà en cours.".to_string())?;
+
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|d| d.join("uninstall.exe")))
+        .filter(|p| p.is_file())
+        .ok_or_else(|| {
+            "Désinstalleur introuvable : l'application ne semble pas installée.".to_string()
+        })?;
+
+    crate::queue::cancel_all(&app, QUEUE_STOP_TIMEOUT).await;
+    spawn_detached(&path, &[])
+        .map_err(|e| format!("Lancement du désinstalleur impossible : {e}"))?;
+
+    guard.keep();
+    exit_soon(app);
     Ok(())
 }
 
@@ -302,19 +350,24 @@ fn wait_pid_arg(pid: u32) -> String {
     format!("{WAIT_PID_ARG}{pid}")
 }
 
-/// Lance DIRECTEMENT l'updater (exe graphique : aucune console, aucun `cmd`).
+/// Lance un exe graphique sans lien avec l'app (aucune console, aucun `cmd`).
 #[cfg(windows)]
-fn launch(path: &std::path::Path) -> Result<(), String> {
+fn spawn_detached(path: &std::path::Path, args: &[String]) -> std::io::Result<()> {
     use std::os::windows::process::CommandExt;
     let mut cmd = std::process::Command::new(path);
-    cmd.arg(wait_pid_arg(std::process::id()))
+    cmd.args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP : aucun lien avec l'app, qui va se fermer.
         .creation_flags(0x0000_0008 | 0x0000_0200);
-    cmd.spawn()
-        .map(|_| ())
+    cmd.spawn().map(|_| ())
+}
+
+/// Lance DIRECTEMENT l'updater avec le PID de l'app à attendre.
+#[cfg(windows)]
+fn launch(path: &std::path::Path) -> Result<(), String> {
+    spawn_detached(path, &[wait_pid_arg(std::process::id())])
         .map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))
 }
 

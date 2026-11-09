@@ -1,4 +1,4 @@
-import { getSettings, saveSettings, errMsg, type Settings } from './api';
+import { getSettings, saveSettings, appUninstall, errMsg, type Settings } from './api';
 import { toast } from './toast';
 import { state } from './state';
 
@@ -28,6 +28,25 @@ function read(): Settings {
   };
 }
 
+async function uninstall(): Promise<void> {
+  const btn = $<HTMLButtonElement>('app-uninstall');
+  try {
+    const { ask } = await import('@tauri-apps/plugin-dialog');
+    const ok = await ask('Désinstaller Media Downloader ? L\'application va se fermer. Les médias téléchargés sont conservés.', {
+      title: 'Désinstaller',
+      kind: 'warning',
+      okLabel: 'Désinstaller',
+      cancelLabel: 'Annuler',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    await appUninstall();
+  } catch (e) {
+    toast(errMsg(e), 'err');
+    btn.disabled = !state.tauri;
+  }
+}
+
 async function save(): Promise<void> {
   const btn = $<HTMLButtonElement>('set-save');
   btn.disabled = true;
@@ -49,6 +68,7 @@ export async function initSettings(): Promise<void> {
     $<HTMLInputElement>('set-crf').disabled = !(e.target as HTMLInputElement).checked;
   });
   $('set-save').addEventListener('click', () => void save());
+  $('app-uninstall').addEventListener('click', () => void uninstall());
 
   $('set-choose').addEventListener('click', async () => {
     try {
@@ -71,7 +91,7 @@ export async function initSettings(): Promise<void> {
     }
   });
 
-  for (const id of ['set-choose', 'set-open', 'set-save']) $<HTMLButtonElement>(id).disabled = !state.tauri;
+  for (const id of ['set-choose', 'set-open', 'set-save', 'app-uninstall']) $<HTMLButtonElement>(id).disabled = !state.tauri;
   if (!state.tauri) return;
   try {
     fill(await getSettings());

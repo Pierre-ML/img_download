@@ -85,5 +85,6 @@ export type UpdateProgress = { downloaded: number; total: number | null };
 
 export const appCheckUpdate = () => invoke<UpdateInfo>('app_check_update');
 export const appInstallUpdate = () => invoke<null>('app_install_update');
+export const appUninstall = () => invoke<null>('app_uninstall');
 export const onUpdateProgress = (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
   listen<UpdateProgress>('app-update-progress', (e) => cb(e.payload));
