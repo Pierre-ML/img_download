@@ -84,7 +84,8 @@ pub async fn run(
         shared: Mutex::new(Shared::default()),
     });
 
-    let candidates = futures::stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|c| (c, rx)) });
+    let candidates =
+        futures::stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|c| (c, rx)) });
     let results = candidates
         .map(|c| {
             let ctx = ctx.clone();
@@ -114,7 +115,8 @@ pub async fn run(
         }
         if ctx.limit_reached(&ctx.shared()) {
             limit_reached = true;
-            ctx.log.info(format!("Limite de {} atteinte", ctx.cfg.limit));
+            ctx.log
+                .info(format!("Limite de {} atteinte", ctx.cfg.limit));
             stop.cancel();
             break;
         }
@@ -137,7 +139,9 @@ impl Drop for TmpFiles {
 enum Kind {
     Image,
     /// `forced` : GIF / WebP animé, ré-encodage obligatoire
-    Video { forced: bool },
+    Video {
+        forced: bool,
+    },
 }
 
 async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
@@ -160,7 +164,12 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
     let audio_path = tmp.join(format!("{id}.audio"));
     let png = tmp.join(format!("{id}.png"));
     let mp4 = tmp.join(format!("{id}.mp4"));
-    let _guard = TmpFiles(vec![raw.clone(), audio_path.clone(), png.clone(), mp4.clone()]);
+    let _guard = TmpFiles(vec![
+        raw.clone(),
+        audio_path.clone(),
+        png.clone(),
+        mp4.clone(),
+    ]);
 
     download(&ctx.http, &c.url, c.referer.as_deref(), &raw).await?;
     let ff = &ctx.cfg.ffmpeg;
@@ -175,13 +184,23 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
                 Some(a) => match download(&ctx.http, a, c.referer.as_deref(), &audio_path).await {
                     Ok(_) => Some(audio_path.as_path()),
                     Err(e) => {
-                        ctx.log.warn(format!("Audio indisponible pour {} : {e:#}", short(&c.url)));
+                        ctx.log
+                            .warn(format!("Audio indisponible pour {} : {e:#}", short(&c.url)));
                         None
                     }
                 },
                 None => None,
             };
-            let res = ffmpeg::to_mp4(ff, &raw, audio, &mp4, ctx.cfg.reencode_video, ctx.cfg.video_crf, forced).await;
+            let res = ffmpeg::to_mp4(
+                ff,
+                &raw,
+                audio,
+                &mp4,
+                ctx.cfg.reencode_video,
+                ctx.cfg.video_crf,
+                forced,
+            )
+            .await;
             match res {
                 Ok(()) => {
                     let d = ffmpeg::video_dimensions(ff, &mp4).await;
@@ -199,7 +218,11 @@ async fn process(ctx: &Ctx, c: &MediaCandidate) -> anyhow::Result<Outcome> {
 
     let hash = sha256_file(&out).await?;
     let bytes = tokio::fs::metadata(&out).await?.len();
-    let ext = if kind == MediaKind::Image { "png" } else { "mp4" };
+    let ext = if kind == MediaKind::Image {
+        "png"
+    } else {
+        "mp4"
+    };
 
     // Réservation du nom final et du compteur sous verrou
     let reserved = {
@@ -250,7 +273,12 @@ async fn remember(ctx: &Ctx, key: &str) {
     }
 }
 
-async fn download(http: &reqwest::Client, url: &str, referer: Option<&str>, dest: &Path) -> anyhow::Result<u64> {
+async fn download(
+    http: &reqwest::Client,
+    url: &str,
+    referer: Option<&str>,
+    dest: &Path,
+) -> anyhow::Result<u64> {
     let mut req = http.get(url);
     if let Some(r) = referer {
         req = req.header(reqwest::header::REFERER, r);
@@ -280,14 +308,22 @@ async fn download(http: &reqwest::Client, url: &str, referer: Option<&str>, dest
 /// Type réel d'après les magic bytes.
 async fn classify(path: &Path) -> anyhow::Result<Kind> {
     let mut head = Vec::with_capacity(8192);
-    tokio::fs::File::open(path).await?.take(8192).read_to_end(&mut head).await?;
+    tokio::fs::File::open(path)
+        .await?
+        .take(8192)
+        .read_to_end(&mut head)
+        .await?;
     let Some(t) = infer::get(&head) else {
         bail!("format non reconnu");
     };
     let mime = t.mime_type();
     if mime == "image/gif" {
         let data = tokio::fs::read(path).await?;
-        return Ok(if gif_is_animated(&data) { Kind::Video { forced: true } } else { Kind::Image });
+        return Ok(if gif_is_animated(&data) {
+            Kind::Video { forced: true }
+        } else {
+            Kind::Image
+        });
     }
     if mime == "image/webp" && webp_is_animated(&head) {
         return Ok(Kind::Video { forced: true });
@@ -348,7 +384,11 @@ fn gif_is_animated(d: &[u8]) -> bool {
 
 /// WebP étendu (VP8X) avec le drapeau d'animation.
 fn webp_is_animated(d: &[u8]) -> bool {
-    d.len() > 20 && &d[0..4] == b"RIFF" && &d[8..12] == b"WEBP" && &d[12..16] == b"VP8X" && d[20] & 0x02 != 0
+    d.len() > 20
+        && &d[0..4] == b"RIFF"
+        && &d[8..12] == b"WEBP"
+        && &d[12..16] == b"VP8X"
+        && d[20] & 0x02 != 0
 }
 
 async fn sha256_file(path: &Path) -> anyhow::Result<[u8; 32]> {
@@ -387,7 +427,9 @@ fn final_stem(name: &str, kind: MediaKind, dims: Option<(u32, u32)>) -> String {
         s = s.replace("_{w}x{h}", "").replace("{w}x{h}", "");
     }
     let (w, h) = dims.unwrap_or((0, 0));
-    s = s.replace("{w}", &w.to_string()).replace("{h}", &h.to_string());
+    s = s
+        .replace("{w}", &w.to_string())
+        .replace("{h}", &h.to_string());
     sanitize_filename(&s, "media")
 }
 
@@ -396,7 +438,13 @@ pub fn sanitize_filename(name: &str, fallback: &str) -> String {
     const FORBIDDEN: &str = "\\/:*?\"<>|";
     let cleaned: String = name
         .chars()
-        .map(|c| if c.is_control() || FORBIDDEN.contains(c) { '_' } else { c })
+        .map(|c| {
+            if c.is_control() || FORBIDDEN.contains(c) {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect();
     let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
     let truncated: String = collapsed.chars().take(MAX_NAME).collect();
@@ -445,13 +493,22 @@ mod tests {
         assert_eq!(sanitize_filename("a/b:c?  d. ", "x"), "a_b_c_ d");
         assert_eq!(sanitize_filename("  ...", "x"), "x");
         assert_eq!(sanitize_filename("con", "x"), "_con");
-        assert_eq!(sanitize_filename(&"é".repeat(200), "x").chars().count(), 120);
+        assert_eq!(
+            sanitize_filename(&"é".repeat(200), "x").chars().count(),
+            120
+        );
     }
 
     #[test]
     fn stems() {
         let n = "chat_001_{w}x{h}";
-        assert_eq!(final_stem(n, MediaKind::Image, Some((640, 480))), "chat_001_640x480");
-        assert_eq!(final_stem(n, MediaKind::Video, Some((640, 480))), "chat_001");
+        assert_eq!(
+            final_stem(n, MediaKind::Image, Some((640, 480))),
+            "chat_001_640x480"
+        );
+        assert_eq!(
+            final_stem(n, MediaKind::Video, Some((640, 480))),
+            "chat_001"
+        );
     }
 }

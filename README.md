@@ -30,10 +30,13 @@ npm run tauri build                   # produit l'installeur dans src-tauri/targ
 
 ## Release
 
-Pousser un tag `vX.Y.Z` déclenche le workflow GitHub Actions `build.yml` : build Windows, Linux et macOS (arm64 et x64), puis création d'une release brouillon avec les installeurs.
+Chaque push sur `main` dont la version (`src-tauri/tauri.conf.json`) n'a pas encore de release déclenche le workflow `release.yml` : build Windows, Linux et macOS (arm64 et x64), puis release GitHub publiée avec les installeurs. Si la version est déjà publiée, le workflow s'arrête sans rien faire.
+
+Pour publier :
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+npm run bump -- patch   # ou minor / major / x.y.z
+git commit -am "vX.Y.Z" && git push
 ```
 
 ## Données et sessions

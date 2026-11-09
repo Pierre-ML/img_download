@@ -114,8 +114,7 @@ pub async fn save_settings(
 ) -> Result<Settings, String> {
     let s = settings.normalized();
     let dest = PathBuf::from(&s.dest_dir);
-    std::fs::create_dir_all(&dest)
-        .map_err(|e| format!("Dossier de destination invalide : {e}"))?;
+    std::fs::create_dir_all(&dest).map_err(|e| format!("Dossier de destination invalide : {e}"))?;
     let path = settings_path(&app).map_err(|e| e.to_string())?;
     let raw = serde_json::to_vec_pretty(&s).map_err(|e| e.to_string())?;
     write_atomic(&path, &raw).map_err(|e| format!("Enregistrement impossible : {e}"))?;

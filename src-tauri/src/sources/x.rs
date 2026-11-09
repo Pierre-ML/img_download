@@ -53,38 +53,58 @@ const DEFAULT_FEATURES: &[(&str, bool)] = &[
     ("verified_phone_label_enabled", false),
     ("creator_subscriptions_tweet_preview_api_enabled", true),
     ("responsive_web_graphql_timeline_navigation_enabled", true),
-    ("responsive_web_graphql_skip_user_profile_image_extensions_enabled", false),
+    (
+        "responsive_web_graphql_skip_user_profile_image_extensions_enabled",
+        false,
+    ),
     ("premium_content_api_read_enabled", false),
     ("communities_web_enable_tweet_community_results_fetch", true),
     ("c9s_tweet_anatomy_moderator_badge_enabled", true),
-    ("responsive_web_grok_analyze_button_fetch_trends_enabled", false),
+    (
+        "responsive_web_grok_analyze_button_fetch_trends_enabled",
+        false,
+    ),
     ("responsive_web_grok_analyze_post_followups_enabled", true),
     ("responsive_web_jetfuel_frame", true),
     ("responsive_web_grok_share_attachment_enabled", true),
     ("articles_preview_enabled", true),
     ("responsive_web_edit_tweet_api_enabled", true),
-    ("graphql_is_translatable_rweb_tweet_is_translatable_enabled", true),
+    (
+        "graphql_is_translatable_rweb_tweet_is_translatable_enabled",
+        true,
+    ),
     ("view_counts_everywhere_api_enabled", true),
     ("longform_notetweets_consumption_enabled", true),
-    ("responsive_web_twitter_article_tweet_consumption_enabled", true),
+    (
+        "responsive_web_twitter_article_tweet_consumption_enabled",
+        true,
+    ),
     ("tweet_awards_web_tipping_enabled", false),
     ("responsive_web_grok_show_grok_translated_post", false),
     ("responsive_web_grok_analysis_button_from_backend", true),
     ("creator_subscriptions_quote_tweet_preview_enabled", false),
     ("freedom_of_speech_not_reach_fetch_enabled", true),
     ("standardized_nudges_misinfo", true),
-    ("tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled", true),
+    (
+        "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled",
+        true,
+    ),
     ("longform_notetweets_rich_text_read_enabled", true),
     ("longform_notetweets_inline_media_enabled", true),
     ("responsive_web_grok_image_annotation_enabled", true),
     ("responsive_web_grok_imagine_annotation_enabled", true),
-    ("responsive_web_grok_community_note_auto_translation_is_enabled", false),
+    (
+        "responsive_web_grok_community_note_auto_translation_is_enabled",
+        false,
+    ),
     ("responsive_web_enhance_cards_enabled", false),
 ];
 
 static RE_SCRIPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"https://abs\.twimg\.com/responsive-web/client-web(?:-legacy)?/[A-Za-z0-9_.~-]+\.js"#)
-        .expect("regex script")
+    Regex::new(
+        r#"https://abs\.twimg\.com/responsive-web/client-web(?:-legacy)?/[A-Za-z0-9_.~-]+\.js"#,
+    )
+    .expect("regex script")
 });
 static RE_LIKES_QID: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"queryId:\s*"([^"]+)"\s*,\s*operationName:\s*"Likes""#).expect("regex queryId")
@@ -118,7 +138,10 @@ pub async fn collect_likes(ctx: &SourceCtx, tx: Sender<MediaCandidate>) -> Resul
     let mut api = XApi {
         ctx,
         cookie_header: session.cookie_header(),
-        ct0: session.get("ct0").filter(|v| !v.is_empty()).map(str::to_string),
+        ct0: session
+            .get("ct0")
+            .filter(|v| !v.is_empty())
+            .map(str::to_string),
     };
 
     match session.username.as_deref().filter(|u| !u.is_empty()) {
@@ -243,18 +266,22 @@ impl XApi<'_> {
         h.insert(USER_AGENT, HeaderValue::from_static(UA));
         h.insert(
             ACCEPT,
-            HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+            HeaderValue::from_static(
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            ),
         );
-        h.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("fr-FR,fr;q=0.9,en;q=0.8"));
+        h.insert(
+            ACCEPT_LANGUAGE,
+            HeaderValue::from_static("fr-FR,fr;q=0.9,en;q=0.8"),
+        );
         h.insert(COOKIE, self.cookie_value()?);
         Ok(h)
     }
 
     fn api_headers(&self) -> Result<HeaderMap> {
-        let ct0 = self
-            .ct0
-            .as_deref()
-            .ok_or_else(|| anyhow!("Session X incomplète (jeton ct0 absent) : reconnecte ton compte"))?;
+        let ct0 = self.ct0.as_deref().ok_or_else(|| {
+            anyhow!("Session X incomplète (jeton ct0 absent) : reconnecte ton compte")
+        })?;
         let mut csrf = HeaderValue::from_str(ct0)
             .map_err(|_| anyhow!("Jeton ct0 invalide : reconnecte ton compte"))?;
         csrf.set_sensitive(true);
@@ -268,7 +295,10 @@ impl XApi<'_> {
             HeaderName::from_static("x-twitter-auth-type"),
             HeaderValue::from_static("OAuth2Session"),
         );
-        h.insert(HeaderName::from_static("x-twitter-active-user"), HeaderValue::from_static("yes"));
+        h.insert(
+            HeaderName::from_static("x-twitter-active-user"),
+            HeaderValue::from_static("yes"),
+        );
         h.insert(
             HeaderName::from_static("x-twitter-client-language"),
             HeaderValue::from_static("fr"),
@@ -279,7 +309,10 @@ impl XApi<'_> {
         h.insert(USER_AGENT, HeaderValue::from_static(UA));
         h.insert(ACCEPT, HeaderValue::from_static("*/*"));
         h.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        h.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("fr-FR,fr;q=0.9,en;q=0.8"));
+        h.insert(
+            ACCEPT_LANGUAGE,
+            HeaderValue::from_static("fr-FR,fr;q=0.9,en;q=0.8"),
+        );
         Ok(h)
     }
 
@@ -298,7 +331,10 @@ impl XApi<'_> {
     }
 
     /// Envoie une requête en respectant l'annulation. `Ok(None)` = annulé.
-    async fn send(&self, req: reqwest::RequestBuilder) -> Result<Option<reqwest::Response>, reqwest::Error> {
+    async fn send(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<Option<reqwest::Response>, reqwest::Error> {
         tokio::select! {
             _ = self.ctx.cancel.cancelled() => Ok(None),
             r = req.send() => r.map(Some),
@@ -340,7 +376,9 @@ impl XApi<'_> {
                         bail!("Erreur réseau vers x.com : {e}");
                     }
                     self.ctx.log.warn(format!("Erreur réseau vers x.com, nouvel essai ({transient_retries}/{MAX_TRANSIENT_RETRIES})"));
-                    if !sleep_or_cancel(self.ctx, Duration::from_secs(2 * transient_retries as u64)).await {
+                    if !sleep_or_cancel(self.ctx, Duration::from_secs(2 * transient_retries as u64))
+                        .await
+                    {
                         return Ok(None);
                     }
                     continue;
@@ -357,13 +395,19 @@ impl XApi<'_> {
 
             match status {
                 s if s.is_success() => {
-                    let v: Value = serde_json::from_str(&body)
-                        .map_err(|_| anyhow!("Réponse Likes illisible (JSON invalide) : {}", truncate(&body, 200)))?;
+                    let v: Value = serde_json::from_str(&body).map_err(|_| {
+                        anyhow!(
+                            "Réponse Likes illisible (JSON invalide) : {}",
+                            truncate(&body, 200)
+                        )
+                    })?;
                     if v.pointer("/data/user/result").is_none() {
                         if v.get("errors").is_some() {
                             bail!("X a renvoyé une erreur : {}", api_error_message(&body));
                         }
-                        self.ctx.log.warn("Réponse Likes inattendue (pas de timeline utilisateur)");
+                        self.ctx
+                            .log
+                            .warn("Réponse Likes inattendue (pas de timeline utilisateur)");
                     }
                     return Ok(Some(v));
                 }
@@ -384,7 +428,10 @@ impl XApi<'_> {
                         }
                         continue;
                     }
-                    bail!("Requête Likes refusée par X (400) : {}", api_error_message(&body));
+                    bail!(
+                        "Requête Likes refusée par X (400) : {}",
+                        api_error_message(&body)
+                    );
                 }
                 StatusCode::TOO_MANY_REQUESTS => {
                     rate_limit_waits += 1;
@@ -392,7 +439,9 @@ impl XApi<'_> {
                         bail!("Limite de requêtes X atteinte trop de fois d'affilée, réessaie plus tard");
                     }
                     let wait = rate_limit_wait_secs(&headers, now_secs());
-                    self.ctx.log.info(format!("Limite X atteinte, reprise dans {wait} s"));
+                    self.ctx
+                        .log
+                        .info(format!("Limite X atteinte, reprise dans {wait} s"));
                     if !sleep_or_cancel(self.ctx, Duration::from_secs(wait)).await {
                         return Ok(None);
                     }
@@ -405,7 +454,10 @@ impl XApi<'_> {
                         csrf_retried = true;
                         continue;
                     }
-                    if has_error_code(&body, 32) || has_error_code(&body, 89) || has_error_code(&body, 353) {
+                    if has_error_code(&body, 32)
+                        || has_error_code(&body, 89)
+                        || has_error_code(&body, 353)
+                    {
                         bail!(SESSION_EXPIRED);
                     }
                     bail!(
@@ -435,12 +487,17 @@ impl XApi<'_> {
                         bail!("x.com indisponible ({s})");
                     }
                     self.ctx.log.warn(format!("x.com renvoie {s}, nouvel essai ({transient_retries}/{MAX_TRANSIENT_RETRIES})"));
-                    if !sleep_or_cancel(self.ctx, Duration::from_secs(3 * transient_retries as u64)).await {
+                    if !sleep_or_cancel(self.ctx, Duration::from_secs(3 * transient_retries as u64))
+                        .await
+                    {
                         return Ok(None);
                     }
                     continue;
                 }
-                s => bail!("Réponse inattendue de x.com ({s}) : {}", api_error_message(&body)),
+                s => bail!(
+                    "Réponse inattendue de x.com ({s}) : {}",
+                    api_error_message(&body)
+                ),
             }
         }
     }
@@ -647,14 +704,6 @@ struct LikesPage {
     cursor: Option<String>,
 }
 
-/// Médias d'une page de Likes + curseur suivant (`cursor-bottom-*`).
-#[allow(dead_code)] // façade pure de `parse_page`, utilisée par les tests
-fn parse_likes_page(v: &Value) -> (Vec<MediaCandidate>, Option<String>) {
-    let page = parse_page(v);
-    let media = page.tweets.into_iter().flat_map(|t| t.media).collect();
-    (media, page.cursor)
-}
-
 fn parse_page(v: &Value) -> LikesPage {
     let mut page = LikesPage::default();
     let Some(user) = v.pointer("/data/user/result") else {
@@ -710,7 +759,10 @@ fn parse_entry(entry: &Value, page: &mut LikesPage) {
         if let Some(result) = content.pointer("/itemContent/tweet_results/result") {
             page.tweets.push(parse_tweet(entry_id, result));
         } else {
-            page.tweets.push(ParsedTweet { entry_id: entry_id.to_string(), media: Vec::new() });
+            page.tweets.push(ParsedTweet {
+                entry_id: entry_id.to_string(),
+                media: Vec::new(),
+            });
         }
         return;
     }
@@ -718,7 +770,10 @@ fn parse_entry(entry: &Value, page: &mut LikesPage) {
     // Modules (rares dans Likes) : content.items[].item.itemContent.tweet_results.result
     if let Some(items) = content.get("items").and_then(Value::as_array) {
         for item in items {
-            let item_id = item.get("entryId").and_then(Value::as_str).unwrap_or(entry_id);
+            let item_id = item
+                .get("entryId")
+                .and_then(Value::as_str)
+                .unwrap_or(entry_id);
             if let Some(result) = item.pointer("/item/itemContent/tweet_results/result") {
                 page.tweets.push(parse_tweet(item_id, result));
             }
@@ -739,7 +794,10 @@ fn unwrap_tweet(result: &Value) -> Option<&Value> {
 }
 
 fn parse_tweet(entry_id: &str, result: &Value) -> ParsedTweet {
-    let mut parsed = ParsedTweet { entry_id: entry_id.to_string(), media: Vec::new() };
+    let mut parsed = ParsedTweet {
+        entry_id: entry_id.to_string(),
+        media: Vec::new(),
+    };
     let Some(tweet) = unwrap_tweet(result) else {
         return parsed;
     };
@@ -888,7 +946,10 @@ fn has_error_code(body: &str, code: u64) -> bool {
     serde_json::from_str::<Value>(body)
         .ok()
         .and_then(|v| v.get("errors").and_then(Value::as_array).cloned())
-        .map(|errs| errs.iter().any(|e| e.get("code").and_then(Value::as_u64) == Some(code)))
+        .map(|errs| {
+            errs.iter()
+                .any(|e| e.get("code").and_then(Value::as_u64) == Some(code))
+        })
         .unwrap_or(false)
 }
 
@@ -1050,26 +1111,40 @@ mod tests {
 
     #[test]
     fn parses_photos_videos_and_cursor() {
-        let (media, cursor) = parse_likes_page(&sample_page());
+        let page = parse_page(&sample_page());
+        let cursor = page.cursor;
+        let media: Vec<MediaCandidate> = page.tweets.into_iter().flat_map(|t| t.media).collect();
         assert_eq!(cursor.as_deref(), Some("HBaAgLydNEXT=="));
         assert_eq!(media.len(), 4, "{media:#?}");
 
         assert_eq!(media[0].key, "x:1850000000000000001:1");
         assert_eq!(media[0].name, "alice_art_1850000000000000001_01");
-        assert_eq!(media[0].url, "https://pbs.twimg.com/media/GaAAAAAXcAA1?format=jpg&name=orig");
+        assert_eq!(
+            media[0].url,
+            "https://pbs.twimg.com/media/GaAAAAAXcAA1?format=jpg&name=orig"
+        );
         assert_eq!(media[0].referer.as_deref(), Some("https://x.com/"));
         assert!(media[0].audio_url.is_none());
 
         assert_eq!(media[1].key, "x:1850000000000000001:2");
         assert_eq!(media[1].name, "alice_art_1850000000000000001_02");
-        assert_eq!(media[1].url, "https://pbs.twimg.com/media/GaBBBBBWkAA2?format=png&name=orig");
+        assert_eq!(
+            media[1].url,
+            "https://pbs.twimg.com/media/GaBBBBBWkAA2?format=png&name=orig"
+        );
 
         assert_eq!(media[2].key, "x:1850000000000000002:1");
         assert_eq!(media[2].name, "bob_vids_1850000000000000002_01");
-        assert_eq!(media[2].url, "https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/high.mp4");
+        assert_eq!(
+            media[2].url,
+            "https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/high.mp4"
+        );
 
         assert_eq!(media[3].name, "gif_lover_1850000000000000004_01");
-        assert_eq!(media[3].url, "https://video.twimg.com/tweet_video/GaGIF.mp4");
+        assert_eq!(
+            media[3].url,
+            "https://video.twimg.com/tweet_video/GaGIF.mp4"
+        );
     }
 
     #[test]
@@ -1089,7 +1164,8 @@ mod tests {
         let page = parse_page(&v);
         assert!(page.tweets.is_empty());
         assert_eq!(page.cursor.as_deref(), Some("SAME"));
-        let (media, cursor) = parse_likes_page(&json!({ "data": {} }));
+        let page = parse_page(&json!({ "data": {} }));
+        let (media, cursor) = (page.tweets, page.cursor);
         assert!(media.is_empty() && cursor.is_none());
     }
 
@@ -1116,7 +1192,10 @@ mod tests {
     #[test]
     fn missing_features_parsing() {
         let body = r#"{"errors":[{"message":"The following features cannot be null: rweb_new_thing, other_flag_enabled","code":336}]}"#;
-        assert_eq!(parse_missing_features(body), vec!["rweb_new_thing", "other_flag_enabled"]);
+        assert_eq!(
+            parse_missing_features(body),
+            vec!["rweb_new_thing", "other_flag_enabled"]
+        );
         assert!(parse_missing_features(r#"{"errors":[{"message":"Bad"}]}"#).is_empty());
     }
 
@@ -1127,11 +1206,17 @@ mod tests {
             5678:e=>{e.exports={queryId:"zzz",operationName:"UserTweets",operationType:"query",metadata:{featureSwitches:["other"],fieldToggles:[]}}}"#;
         let op = find_likes_operation(js).expect("opération trouvée");
         assert_eq!(op.query_id, "LiKeS_qid-9");
-        assert_eq!(op.features, vec!["rweb_tipjar_consumption_enabled", "brand_new_flag"]);
+        assert_eq!(
+            op.features,
+            vec!["rweb_tipjar_consumption_enabled", "brand_new_flag"]
+        );
         assert_eq!(op.field_toggles, vec!["withArticlePlainText"]);
 
         let feats = build_features(&op.features, &HashMap::from([("late".to_string(), true)]));
-        assert_eq!(feats.get("rweb_tipjar_consumption_enabled"), Some(&Value::Bool(true)));
+        assert_eq!(
+            feats.get("rweb_tipjar_consumption_enabled"),
+            Some(&Value::Bool(true))
+        );
         assert_eq!(feats.get("brand_new_flag"), Some(&Value::Bool(true)));
         assert_eq!(feats.get("late"), Some(&Value::Bool(true)));
         assert!(!feats.contains_key("payments_enabled"));
@@ -1156,7 +1241,10 @@ mod tests {
         );
         let mut h = HeaderMap::new();
         h.append(SET_COOKIE, HeaderValue::from_static("guest_id=v1; Path=/"));
-        h.append(SET_COOKIE, HeaderValue::from_static("ct0=fresh; Domain=.x.com; Secure"));
+        h.append(
+            SET_COOKIE,
+            HeaderValue::from_static("ct0=fresh; Domain=.x.com; Secure"),
+        );
         assert_eq!(set_cookie_value(&h, "ct0").as_deref(), Some("fresh"));
         assert_eq!(set_cookie_value(&h, "auth_token"), None);
 
@@ -1168,9 +1256,16 @@ mod tests {
 
     #[test]
     fn likes_url_contains_params() {
-        let url = likes_url(&LikesOperation::fallback(), "42", Some("CUR"), &HashMap::new())
-            .expect("url");
-        assert!(url.path().ends_with(&format!("/{FALLBACK_LIKES_QUERY_ID}/Likes")));
+        let url = likes_url(
+            &LikesOperation::fallback(),
+            "42",
+            Some("CUR"),
+            &HashMap::new(),
+        )
+        .expect("url");
+        assert!(url
+            .path()
+            .ends_with(&format!("/{FALLBACK_LIKES_QUERY_ID}/Likes")));
         let pairs: HashMap<String, String> = url.query_pairs().into_owned().collect();
         let vars: Value = serde_json::from_str(&pairs["variables"]).expect("variables");
         assert_eq!(vars["userId"], "42");

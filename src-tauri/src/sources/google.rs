@@ -28,7 +28,11 @@ fn re_ou() -> &'static Regex {
     R.get_or_init(|| Regex::new(r#""ou":"((?:[^"\\]|\\.)*)""#).expect("regex ou"))
 }
 
-pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender<MediaCandidate>) -> Result<()> {
+pub async fn collect(
+    ctx: &SourceCtx,
+    query: &str,
+    tx: tokio::sync::mpsc::Sender<MediaCandidate>,
+) -> Result<()> {
     let keyword = clean_keyword(query);
     let counter = AtomicU32::new(max_existing_number(&ctx.dest_dir, &keyword));
     let max_candidates = if ctx.limit == 0 {
@@ -37,7 +41,8 @@ pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender
         (ctx.limit as usize).saturating_mul(2)
     };
     let q = urlencoding::encode(query.trim()).into_owned();
-    ctx.log.info(format!("Recherche Google Images : « {} »", query.trim()));
+    ctx.log
+        .info(format!("Recherche Google Images : « {} »", query.trim()));
 
     let mut seen: HashSet<String> = HashSet::new();
     let mut sent = 0usize;
@@ -54,7 +59,10 @@ pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender
             .http
             .get(&url)
             .header("user-agent", UA)
-            .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header(
+                "accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            )
             .header("accept-language", "fr-FR,fr;q=0.9,en;q=0.8")
             .header("cookie", "CONSENT=YES+")
             .send()
@@ -62,7 +70,9 @@ pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender
         let resp = match resp {
             Ok(r) => r,
             Err(e) if page > 0 => {
-                ctx.log.warn(format!("Page {page} : erreur réseau ({e}), arrêt de la collecte"));
+                ctx.log.warn(format!(
+                    "Page {page} : erreur réseau ({e}), arrêt de la collecte"
+                ));
                 break;
             }
             Err(e) => bail!("Requête Google impossible : {e}"),
@@ -72,13 +82,16 @@ pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender
             if page == 0 {
                 bail!("Google a répondu {status} (captcha ou limitation ? réessaie plus tard)");
             }
-            ctx.log.warn(format!("Page {page} : Google a répondu {status}, arrêt de la collecte"));
+            ctx.log.warn(format!(
+                "Page {page} : Google a répondu {status}, arrêt de la collecte"
+            ));
             break;
         }
         let html = match resp.text().await {
             Ok(t) => t,
             Err(e) if page > 0 => {
-                ctx.log.warn(format!("Page {page} : lecture impossible ({e})"));
+                ctx.log
+                    .warn(format!("Page {page} : lecture impossible ({e})"));
                 break;
             }
             Err(e) => bail!("Lecture de la réponse Google impossible : {e}"),
@@ -107,7 +120,9 @@ pub async fn collect(ctx: &SourceCtx, query: &str, tx: tokio::sync::mpsc::Sender
                 break;
             }
         }
-        ctx.log.info(format!("Page {page} : {new_count} nouvelles images ({sent} au total)"));
+        ctx.log.info(format!(
+            "Page {page} : {new_count} nouvelles images ({sent} au total)"
+        ));
 
         if page == 0 && new_count == 0 {
             ctx.log.warn(
@@ -152,11 +167,15 @@ fn extract_urls(html: &str) -> Vec<String> {
 }
 
 fn is_candidate(u: &str) -> bool {
-    let Ok(parsed) = url::Url::parse(u) else { return false };
+    let Ok(parsed) = url::Url::parse(u) else {
+        return false;
+    };
     if !matches!(parsed.scheme(), "http" | "https") {
         return false;
     }
-    let Some(host) = parsed.host_str() else { return false };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
     let host = host.to_lowercase();
     !(host.contains("gstatic") || host.contains("google") || host.starts_with("encrypted-tbn"))
 }
@@ -237,10 +256,14 @@ fn clean_keyword(q: &str) -> String {
 fn max_existing_number(dir: &std::path::Path, keyword: &str) -> u32 {
     let prefix = format!("{keyword}_");
     let mut max = 0u32;
-    let Ok(rd) = std::fs::read_dir(dir) else { return 0 };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return 0;
+    };
     for entry in rd.flatten() {
         let name = entry.file_name().to_string_lossy().to_lowercase();
-        let Some(rest) = name.strip_prefix(&prefix) else { continue };
+        let Some(rest) = name.strip_prefix(&prefix) else {
+            continue;
+        };
         let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
         if digits.is_empty() || !rest[digits.len()..].starts_with('_') {
             continue;

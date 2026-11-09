@@ -50,11 +50,19 @@ pub struct JobLogger {
 
 impl JobLogger {
     pub fn new(app: AppHandle, job_id: impl Into<String>) -> Self {
-        Self { app, job_id: job_id.into() }
+        Self {
+            app,
+            job_id: job_id.into(),
+        }
     }
 
     fn emit(&self, level: &str, message: String) {
-        let payload = JobLog { job_id: &self.job_id, level, message, ts: now_ms() };
+        let payload = JobLog {
+            job_id: &self.job_id,
+            level,
+            message,
+            ts: now_ms(),
+        };
         let _ = self.app.emit("job-log", payload);
     }
 

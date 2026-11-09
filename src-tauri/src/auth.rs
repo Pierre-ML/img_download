@@ -292,7 +292,9 @@ pub async fn account_login(app: AppHandle, provider: Provider) -> Result<Account
         let _ = w.show();
         let _ = w.set_focus();
     } else {
-        let url: tauri::Url = login_url.parse().map_err(|e| format!("URL invalide : {e}"))?;
+        let url: tauri::Url = login_url
+            .parse()
+            .map_err(|e| format!("URL invalide : {e}"))?;
         WebviewWindowBuilder::new(&app, label, WebviewUrl::External(url))
             .title(title)
             .inner_size(520.0, 760.0)
@@ -368,7 +370,9 @@ async fn poll_login(app: AppHandle, provider: Provider) -> Result<AccountStatus,
         Provider::X => ("https://x.com/", |c| has(c, "auth_token") && has(c, "ct0")),
         Provider::Reddit => ("https://www.reddit.com/", |c| has(c, "reddit_session")),
     };
-    let url: tauri::Url = cookie_url.parse().map_err(|e| format!("URL invalide : {e}"))?;
+    let url: tauri::Url = cookie_url
+        .parse()
+        .map_err(|e| format!("URL invalide : {e}"))?;
     let deadline = Instant::now() + LOGIN_TIMEOUT;
 
     loop {
@@ -418,7 +422,9 @@ async fn poll_login(app: AppHandle, provider: Provider) -> Result<AccountStatus,
 }
 
 fn has(cookies: &[SessionCookie], name: &str) -> bool {
-    cookies.iter().any(|c| c.name == name && !c.value.is_empty())
+    cookies
+        .iter()
+        .any(|c| c.name == name && !c.value.is_empty())
 }
 
 fn now_secs() -> i64 {

@@ -13,7 +13,10 @@ const PAGE_PAUSE: Duration = Duration::from_millis(500);
 const MAX_RETRIES_429: u32 = 3;
 const IMG_EXTS: [&str; 5] = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
-pub async fn collect_saved(ctx: &SourceCtx, tx: tokio::sync::mpsc::Sender<MediaCandidate>) -> Result<()> {
+pub async fn collect_saved(
+    ctx: &SourceCtx,
+    tx: tokio::sync::mpsc::Sender<MediaCandidate>,
+) -> Result<()> {
     let Some(session) = ctx.session.as_ref() else {
         bail!("Compte Reddit non connecté");
     };
@@ -25,7 +28,8 @@ pub async fn collect_saved(ctx: &SourceCtx, tx: tokio::sync::mpsc::Sender<MediaC
         None => fetch_me(ctx, &cookie).await?,
     };
     let user_enc = urlencoding::encode(&username).into_owned();
-    ctx.log.info(format!("Collecte des posts enregistrés de u/{username}…"));
+    ctx.log
+        .info(format!("Collecte des posts enregistrés de u/{username}…"));
 
     let mut redgifs_token: Option<String> = None;
     let mut use_oauth = false;
@@ -40,11 +44,31 @@ pub async fn collect_saved(ctx: &SourceCtx, tx: tokio::sync::mpsc::Sender<MediaC
         page += 1;
 
         let (status, body) = {
-            let r = fetch_page(ctx, &user_enc, after.as_deref(), &cookie, token.as_deref(), use_oauth).await?;
-            if !use_oauth && matches!(r.0, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) && token.is_some() {
-                ctx.log.warn("Accès web refusé, repli sur l'API OAuth (token_v2)");
+            let r = fetch_page(
+                ctx,
+                &user_enc,
+                after.as_deref(),
+                &cookie,
+                token.as_deref(),
+                use_oauth,
+            )
+            .await?;
+            if !use_oauth
+                && matches!(r.0, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN)
+                && token.is_some()
+            {
+                ctx.log
+                    .warn("Accès web refusé, repli sur l'API OAuth (token_v2)");
                 use_oauth = true;
-                fetch_page(ctx, &user_enc, after.as_deref(), &cookie, token.as_deref(), true).await?
+                fetch_page(
+                    ctx,
+                    &user_enc,
+                    after.as_deref(),
+                    &cookie,
+                    token.as_deref(),
+                    true,
+                )
+                .await?
             } else {
                 r
             }
@@ -73,7 +97,9 @@ pub async fn collect_saved(ctx: &SourceCtx, tx: tokio::sync::mpsc::Sender<MediaC
             if child.get("kind").and_then(Value::as_str) != Some("t3") {
                 continue; // commentaire enregistré
             }
-            let Some(post) = child.get("data") else { continue };
+            let Some(post) = child.get("data") else {
+                continue;
+            };
             for cand in post_candidates(ctx, post, &mut redgifs_token).await {
                 page_media += 1;
                 if tx.send(cand).await.is_err() {
@@ -100,7 +126,8 @@ pub async fn collect_saved(ctx: &SourceCtx, tx: tokio::sync::mpsc::Sender<MediaC
             _ = ctx.cancel.cancelled() => return Ok(()),
         }
     }
-    ctx.log.info(format!("Collecte terminée : {total} médias trouvés"));
+    ctx.log
+        .info(format!("Collecte terminée : {total} médias trouvés"));
     Ok(())
 }
 
@@ -122,7 +149,8 @@ async fn send_retry(ctx: &SourceCtx, build: impl Fn() -> RequestBuilder) -> Resu
             .and_then(|v| v.trim().parse::<u64>().ok())
             .unwrap_or(5)
             .clamp(1, 120);
-        ctx.log.warn(format!("Reddit limite le débit (429), attente {wait} s…"));
+        ctx.log
+            .warn(format!("Reddit limite le débit (429), attente {wait} s…"));
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(wait)) => {}
             _ = ctx.cancel.cancelled() => bail!("Annulé"),
@@ -140,7 +168,10 @@ async fn fetch_me(ctx: &SourceCtx, cookie: &str) -> Result<String> {
     })
     .await?;
     if !resp.status().is_success() {
-        bail!("Impossible de déterminer le nom d'utilisateur Reddit ({})", resp.status());
+        bail!(
+            "Impossible de déterminer le nom d'utilisateur Reddit ({})",
+            resp.status()
+        );
     }
     let v: Value = resp.json().await?;
     match v
@@ -172,7 +203,11 @@ async fn fetch_page(
         url.push_str(&urlencoding::encode(a));
     }
     let resp = send_retry(ctx, || {
-        let rb = ctx.http.get(&url).header("user-agent", UA).header("accept", "application/json");
+        let rb = ctx
+            .http
+            .get(&url)
+            .header("user-agent", UA)
+            .header("accept", "application/json");
         match (oauth, token) {
             (true, Some(t)) => rb.header("authorization", format!("Bearer {t}")),
             _ => rb.header("cookie", cookie),
@@ -195,7 +230,9 @@ struct Media {
 }
 
 fn s<'a>(v: &'a Value, ptr: &str) -> Option<&'a str> {
-    v.pointer(ptr).and_then(Value::as_str).filter(|x| !x.is_empty())
+    v.pointer(ptr)
+        .and_then(Value::as_str)
+        .filter(|x| !x.is_empty())
 }
 
 fn unescape(u: &str) -> String {
@@ -218,8 +255,14 @@ fn host_of(u: &str) -> String {
         .unwrap_or_default()
 }
 
-async fn post_candidates(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option<String>) -> Vec<MediaCandidate> {
-    let Some(id) = s(post, "/id") else { return vec![] };
+async fn post_candidates(
+    ctx: &SourceCtx,
+    post: &Value,
+    redgifs_token: &mut Option<String>,
+) -> Vec<MediaCandidate> {
+    let Some(id) = s(post, "/id") else {
+        return vec![];
+    };
     let title = clean_title(s(post, "/title").unwrap_or(""), id);
     // Crosspost : les médias sont portés par le post d'origine.
     let src = post
@@ -236,7 +279,11 @@ async fn post_candidates(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Opti
             key: format!("reddit:{id}:{i}"),
             url: m.url,
             audio_url: m.audio,
-            name: if multi { format!("{title}_{:02}", i + 1) } else { title.clone() },
+            name: if multi {
+                format!("{title}_{:02}", i + 1)
+            } else {
+                title.clone()
+            },
             referer: Some("https://www.reddit.com/".to_string()),
         })
         .collect()
@@ -252,14 +299,25 @@ fn clean_title(raw: &str, id: &str) -> String {
     }
 }
 
-async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option<String>) -> Vec<Media> {
+async fn extract_media(
+    ctx: &SourceCtx,
+    post: &Value,
+    redgifs_token: &mut Option<String>,
+) -> Vec<Media> {
     // 1. Galerie
     if post.get("is_gallery").and_then(Value::as_bool) == Some(true) {
         if let Some(meta) = post.get("media_metadata").and_then(Value::as_object) {
-            let ids: Vec<String> = match post.pointer("/gallery_data/items").and_then(Value::as_array) {
+            let ids: Vec<String> = match post
+                .pointer("/gallery_data/items")
+                .and_then(Value::as_array)
+            {
                 Some(items) => items
                     .iter()
-                    .filter_map(|it| it.get("media_id").and_then(Value::as_str).map(str::to_string))
+                    .filter_map(|it| {
+                        it.get("media_id")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
                     .collect(),
                 None => meta.keys().cloned().collect(),
             };
@@ -273,8 +331,13 @@ async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option
                         }
                     }
                     // Animés : mp4 > gif ; statiques : u
-                    let u = s(m, "/s/mp4").or_else(|| s(m, "/s/u")).or_else(|| s(m, "/s/gif"))?;
-                    Some(Media { url: unescape(u), audio: None })
+                    let u = s(m, "/s/mp4")
+                        .or_else(|| s(m, "/s/u"))
+                        .or_else(|| s(m, "/s/gif"))?;
+                    Some(Media {
+                        url: unescape(u),
+                        audio: None,
+                    })
                 })
                 .collect();
             if !out.is_empty() {
@@ -295,7 +358,11 @@ async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option
         if let Some(fb) = s(rv, "/fallback_url") {
             let video = strip_query(fb).to_string();
             let is_gif = rv.get("is_gif").and_then(Value::as_bool) == Some(true);
-            let audio = if is_gif { None } else { find_audio(ctx, &video).await };
+            let audio = if is_gif {
+                None
+            } else {
+                find_audio(ctx, &video).await
+            };
             return vec![Media { url: video, audio }];
         }
     }
@@ -303,7 +370,10 @@ async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option
     // 3. Imgur .gifv → .mp4
     if host.ends_with("imgur.com") && strip_query(&url).to_lowercase().ends_with(".gifv") {
         let p = strip_query(&url);
-        return vec![Media { url: format!("{}mp4", &p[..p.len() - 4]), audio: None }];
+        return vec![Media {
+            url: format!("{}mp4", &p[..p.len() - 4]),
+            audio: None,
+        }];
     }
 
     // 4. Image directe
@@ -324,7 +394,12 @@ async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option
             .to_lowercase();
         if !id.is_empty() {
             match redgifs_url(ctx, redgifs_token, &id).await {
-                Ok(u) => return vec![Media { url: u, audio: None }],
+                Ok(u) => {
+                    return vec![Media {
+                        url: u,
+                        audio: None,
+                    }]
+                }
                 Err(e) => ctx.log.warn(format!("Redgifs {id} ignoré : {e}")),
             }
         }
@@ -333,13 +408,19 @@ async fn extract_media(ctx: &SourceCtx, post: &Value, redgifs_token: &mut Option
 
     // 6. Aperçu vidéo
     if let Some(fb) = s(post, "/preview/reddit_video_preview/fallback_url") {
-        return vec![Media { url: strip_query(fb).to_string(), audio: None }];
+        return vec![Media {
+            url: strip_query(fb).to_string(),
+            audio: None,
+        }];
     }
 
     // 7. Aperçu image
     if s(post, "/post_hint") == Some("image") {
         if let Some(u) = s(post, "/preview/images/0/source/url") {
-            return vec![Media { url: unescape(u), audio: None }];
+            return vec![Media {
+                url: unescape(u),
+                audio: None,
+            }];
         }
     }
     vec![]

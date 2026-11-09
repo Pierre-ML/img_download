@@ -24,7 +24,10 @@ pub struct FfmpegStatus {
 
 /// Cherche ffmpeg à côté de l'exécutable, puis dans le PATH.
 pub fn resolve() -> Option<PathBuf> {
-    if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)) {
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(Path::to_path_buf))
+    {
         let p = dir.join(EXE_NAME);
         if p.is_file() {
             return Some(p);
@@ -50,10 +53,18 @@ fn command(bin: &Path) -> Command {
 
 /// Lance ffmpeg ; en cas d'échec renvoie la dernière ligne d'erreur.
 async fn run(bin: &Path, args: &[&std::ffi::OsStr]) -> anyhow::Result<()> {
-    let out = command(bin).args(args).output().await.context("lancement de ffmpeg")?;
+    let out = command(bin)
+        .args(args)
+        .output()
+        .await
+        .context("lancement de ffmpeg")?;
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr);
-        let last = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("erreur inconnue");
+        let last = err
+            .lines()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("erreur inconnue");
         bail!("ffmpeg : {}", last.trim());
     }
     Ok(())
@@ -62,7 +73,11 @@ async fn run(bin: &Path, args: &[&std::ffi::OsStr]) -> anyhow::Result<()> {
 #[tauri::command]
 pub async fn ffmpeg_status() -> Result<FfmpegStatus, String> {
     let Some(bin) = resolve() else {
-        return Ok(FfmpegStatus { available: false, path: None, version: None });
+        return Ok(FfmpegStatus {
+            available: false,
+            path: None,
+            version: None,
+        });
     };
     let mut cmd = command(&bin);
     cmd.stdout(Stdio::piped()).arg("-version");
@@ -87,13 +102,29 @@ pub async fn ffmpeg_status() -> Result<FfmpegStatus, String> {
 
 /// Image quelconque → PNG (1re frame, sans métadonnées), optimisé par oxipng si demandé.
 /// Renvoie les dimensions lues dans l'en-tête IHDR.
-pub async fn to_png(bin: &Path, input: &Path, output: &Path, optimize: bool) -> anyhow::Result<(u32, u32)> {
+pub async fn to_png(
+    bin: &Path,
+    input: &Path,
+    output: &Path,
+    optimize: bool,
+) -> anyhow::Result<(u32, u32)> {
     let args: Vec<&std::ffi::OsStr> = vec![
-        "-y".as_ref(), "-hide_banner".as_ref(), "-loglevel".as_ref(), "error".as_ref(),
-        "-i".as_ref(), input.as_os_str(),
-        "-frames:v".as_ref(), "1".as_ref(), "-map_metadata".as_ref(), "-1".as_ref(),
-        "-c:v".as_ref(), "png".as_ref(), "-compression_level".as_ref(), "9".as_ref(),
-        "-pred".as_ref(), "mixed".as_ref(),
+        "-y".as_ref(),
+        "-hide_banner".as_ref(),
+        "-loglevel".as_ref(),
+        "error".as_ref(),
+        "-i".as_ref(),
+        input.as_os_str(),
+        "-frames:v".as_ref(),
+        "1".as_ref(),
+        "-map_metadata".as_ref(),
+        "-1".as_ref(),
+        "-c:v".as_ref(),
+        "png".as_ref(),
+        "-compression_level".as_ref(),
+        "9".as_ref(),
+        "-pred".as_ref(),
+        "mixed".as_ref(),
         output.as_os_str(),
     ];
     run(bin, &args).await?;
@@ -160,27 +191,50 @@ async fn mp4_pass(
 ) -> anyhow::Result<()> {
     let crf = crf.to_string();
     let mut args: Vec<&std::ffi::OsStr> = vec![
-        "-y".as_ref(), "-hide_banner".as_ref(), "-loglevel".as_ref(), "error".as_ref(),
-        "-i".as_ref(), input.as_os_str(),
+        "-y".as_ref(),
+        "-hide_banner".as_ref(),
+        "-loglevel".as_ref(),
+        "error".as_ref(),
+        "-i".as_ref(),
+        input.as_os_str(),
     ];
     if let Some(a) = audio {
         args.extend::<[&std::ffi::OsStr; 8]>([
-            "-i".as_ref(), a.as_os_str(),
-            "-map".as_ref(), "0:v:0".as_ref(), "-map".as_ref(), "1:a:0".as_ref(),
-            "-shortest".as_ref(), "-dn".as_ref(),
+            "-i".as_ref(),
+            a.as_os_str(),
+            "-map".as_ref(),
+            "0:v:0".as_ref(),
+            "-map".as_ref(),
+            "1:a:0".as_ref(),
+            "-shortest".as_ref(),
+            "-dn".as_ref(),
         ]);
     }
     if reencode {
         args.extend::<[&std::ffi::OsStr; 16]>([
-            "-c:v".as_ref(), "libx264".as_ref(), "-crf".as_ref(), crf.as_ref(),
-            "-preset".as_ref(), "medium".as_ref(), "-pix_fmt".as_ref(), "yuv420p".as_ref(),
-            "-vf".as_ref(), "scale=trunc(iw/2)*2:trunc(ih/2)*2".as_ref(),
-            "-c:a".as_ref(), "aac".as_ref(), "-b:a".as_ref(), "128k".as_ref(),
-            "-movflags".as_ref(), "+faststart".as_ref(),
+            "-c:v".as_ref(),
+            "libx264".as_ref(),
+            "-crf".as_ref(),
+            crf.as_ref(),
+            "-preset".as_ref(),
+            "medium".as_ref(),
+            "-pix_fmt".as_ref(),
+            "yuv420p".as_ref(),
+            "-vf".as_ref(),
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2".as_ref(),
+            "-c:a".as_ref(),
+            "aac".as_ref(),
+            "-b:a".as_ref(),
+            "128k".as_ref(),
+            "-movflags".as_ref(),
+            "+faststart".as_ref(),
         ]);
     } else {
         args.extend::<[&std::ffi::OsStr; 4]>([
-            "-c".as_ref(), "copy".as_ref(), "-movflags".as_ref(), "+faststart".as_ref(),
+            "-c".as_ref(),
+            "copy".as_ref(),
+            "-movflags".as_ref(),
+            "+faststart".as_ref(),
         ]);
     }
     args.push(output.as_os_str());
@@ -190,11 +244,16 @@ async fn mp4_pass(
 /// Dimensions d'une vidéo, lues dans la sortie de `ffmpeg -i`.
 pub async fn video_dimensions(bin: &Path, path: &Path) -> Option<(u32, u32)> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| {
-        Regex::new(r"Video:.*?\b(\d{2,5})x(\d{2,5})\b").expect("regex valide")
-    });
+    let re =
+        RE.get_or_init(|| Regex::new(r"Video:.*?\b(\d{2,5})x(\d{2,5})\b").expect("regex valide"));
     // Sans fichier de sortie ffmpeg échoue, mais affiche les infos du flux
-    let out = command(bin).arg("-hide_banner").arg("-i").arg(path).output().await.ok()?;
+    let out = command(bin)
+        .arg("-hide_banner")
+        .arg("-i")
+        .arg(path)
+        .output()
+        .await
+        .ok()?;
     let text = String::from_utf8_lossy(&out.stderr);
     let caps = re.captures(&text)?;
     Some((caps[1].parse().ok()?, caps[2].parse().ok()?))

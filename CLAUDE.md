@@ -27,7 +27,7 @@ img_download/
 ├── package.json, astro.config.mjs, tsconfig.json
 ├── app-icon.svg / app-icon.png      # source des icônes (npx @tauri-apps/cli icon)
 ├── scripts/fetch-ffmpeg.mjs         # ffmpeg → src-tauri/binaries/ffmpeg-<triple>[.exe]
-├── .github/workflows/               # build.yml (release sur tag v*), check.yml (CI)
+├── .github/workflows/               # release.yml (build + release auto sur push main), check.yml (CI)
 ├── src/                             # Frontend Astro (pages, composants, TS, styles Tailwind v4)
 └── src-tauri/
     ├── Cargo.toml, build.rs, tauri.conf.json, capabilities/default.json
@@ -65,7 +65,7 @@ npm run tauri build                   # installeur
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Release : tag `vX.Y.Z` → GitHub Actions (`build.yml`, release brouillon).
+Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de release déclenche build + release GitHub publiée (`release.yml`). Pour publier : `npm run bump -- patch`, commit, push.
 
 ## Ajouter une source
 

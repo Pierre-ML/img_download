@@ -2,9 +2,9 @@ name: Check
 
 on:
   push:
-    branches: [main, v5-tauri]
+    branches: [main]
   pull_request:
-    branches: [main, v5-tauri]
+    branches: [main]
 
 jobs:
   check:

@@ -131,7 +131,10 @@ impl DownloadedStore {
             .ok()
             .and_then(|raw| serde_json::from_slice::<HashSet<String>>(&raw).ok())
             .unwrap_or_default();
-        Self { path, inner: Mutex::new(StoreInner { keys, unsaved: 0 }) }
+        Self {
+            path,
+            inner: Mutex::new(StoreInner { keys, unsaved: 0 }),
+        }
     }
 
     pub fn contains(&self, key: &str) -> bool {
@@ -245,12 +248,14 @@ async fn runner(app: AppHandle, q: Arc<Inner>) {
     loop {
         let next = {
             let mut jobs = lock(&q.jobs);
-            jobs.iter_mut().find(|e| e.info.status == JobStatus::Queued).map(|e| {
-                e.info.status = JobStatus::Running;
-                e.info.started_at = Some(now_ms());
-                e.dirty = false;
-                (e.info.clone(), e.request.clone(), e.cancel.clone())
-            })
+            jobs.iter_mut()
+                .find(|e| e.info.status == JobStatus::Queued)
+                .map(|e| {
+                    e.info.status = JobStatus::Running;
+                    e.info.started_at = Some(now_ms());
+                    e.dirty = false;
+                    (e.info.clone(), e.request.clone(), e.cancel.clone())
+                })
         };
         let Some((info, request, cancel)) = next else {
             q.wake.notified().await;
@@ -258,7 +263,11 @@ async fn runner(app: AppHandle, q: Arc<Inner>) {
         };
         emit_job(&app, &info);
 
-        let handle = JobHandle { app: app.clone(), q: q.clone(), id: info.id.clone() };
+        let handle = JobHandle {
+            app: app.clone(),
+            q: q.clone(),
+            id: info.id.clone(),
+        };
         let log = JobLogger::new(app.clone(), info.id.clone());
         log.info(format!("Démarrage : {}", info.label));
 
@@ -278,7 +287,16 @@ async fn runner(app: AppHandle, q: Arc<Inner>) {
             })
         };
 
-        let result = run_job(&app, &q, &handle, &info, request, cancel.clone(), log.clone()).await;
+        let result = run_job(
+            &app,
+            &q,
+            &handle,
+            &info,
+            request,
+            cancel.clone(),
+            log.clone(),
+        )
+        .await;
         tick_stop.cancel();
         let _ = ticker.await;
         let store = q.store.clone();
@@ -325,12 +343,17 @@ async fn run_job(
     log: JobLogger,
 ) -> anyhow::Result<()> {
     let s = settings::current(app);
-    let ffmpeg = crate::ffmpeg::resolve()
-        .ok_or_else(|| anyhow::anyhow!("ffmpeg introuvable (ni à côté de l'application, ni dans le PATH)"))?;
+    let ffmpeg = crate::ffmpeg::resolve().ok_or_else(|| {
+        anyhow::anyhow!("ffmpeg introuvable (ni à côté de l'application, ni dans le PATH)")
+    })?;
 
     let dest_dir = PathBuf::from(&info.dest_dir);
-    std::fs::create_dir_all(&dest_dir)
-        .map_err(|e| anyhow::anyhow!("Création du dossier {} impossible : {e}", dest_dir.display()))?;
+    std::fs::create_dir_all(&dest_dir).map_err(|e| {
+        anyhow::anyhow!(
+            "Création du dossier {} impossible : {e}",
+            dest_dir.display()
+        )
+    })?;
     settings::allow_dest(app, &dest_dir);
 
     let tmp_dir = app.path().app_cache_dir()?.join("jobs").join(&info.id);
@@ -377,7 +400,14 @@ async fn run_job(
         video_crf: s.video_crf,
         limit: info.limit,
     };
-    let pipe = pipeline::run(cfg, q.http.clone(), handle.clone(), log.clone(), rx, source_cancel.clone());
+    let pipe = pipeline::run(
+        cfg,
+        q.http.clone(),
+        handle.clone(),
+        log.clone(),
+        rx,
+        source_cancel.clone(),
+    );
 
     let (src_res, limit_reached) = tokio::join!(source, pipe);
     let _ = tokio::fs::remove_dir_all(&tmp_dir).await;
@@ -390,7 +420,9 @@ async fn run_job(
 
 fn job_folder(dest: &Path, req: &JobRequest) -> PathBuf {
     match req {
-        JobRequest::Google { query, .. } => dest.join("Google").join(sanitize_filename(query, "recherche")),
+        JobRequest::Google { query, .. } => dest
+            .join("Google")
+            .join(sanitize_filename(query, "recherche")),
         JobRequest::XLikes { .. } => dest.join("X").join("Likes"),
         JobRequest::RedditSaved { .. } => dest.join("Reddit").join("Saved"),
     }
@@ -415,9 +447,15 @@ pub async fn queue_add(
         other => other,
     };
     let (kind, label, limit) = match &request {
-        JobRequest::Google { query, limit } => (JobKind::Google, format!("Google : {query}"), *limit),
+        JobRequest::Google { query, limit } => {
+            (JobKind::Google, format!("Google : {query}"), *limit)
+        }
         JobRequest::XLikes { limit } => (JobKind::XLikes, "Likes X".to_string(), *limit),
-        JobRequest::RedditSaved { limit } => (JobKind::RedditSaved, "Reddit enregistrés".to_string(), *limit),
+        JobRequest::RedditSaved { limit } => (
+            JobKind::RedditSaved,
+            "Reddit enregistrés".to_string(),
+            *limit,
+        ),
     };
     let s = settings::current(&app);
     let dest = job_folder(Path::new(&s.dest_dir), &request);
@@ -453,7 +491,11 @@ pub async fn queue_list(state: State<'_, QueueState>) -> Result<Vec<JobInfo>, St
 }
 
 #[tauri::command]
-pub async fn queue_cancel(app: AppHandle, state: State<'_, QueueState>, id: String) -> Result<(), String> {
+pub async fn queue_cancel(
+    app: AppHandle,
+    state: State<'_, QueueState>,
+    id: String,
+) -> Result<(), String> {
     let changed = {
         let mut jobs = lock(&state.0.jobs);
         let Some(e) = jobs.iter_mut().find(|e| e.info.id == id) else {
@@ -487,8 +529,15 @@ pub async fn queue_clear_finished(state: State<'_, QueueState>) -> Result<(), St
 }
 
 #[tauri::command]
-pub async fn recent_media(state: State<'_, QueueState>, limit: u32) -> Result<Vec<MediaSaved>, String> {
+pub async fn recent_media(
+    state: State<'_, QueueState>,
+    limit: u32,
+) -> Result<Vec<MediaSaved>, String> {
     let r = lock(&state.0.recent);
-    let n = if limit == 0 { r.len() } else { (limit as usize).min(r.len()) };
+    let n = if limit == 0 {
+        r.len()
+    } else {
+        (limit as usize).min(r.len())
+    };
     Ok(r.iter().take(n).cloned().collect())
 }
