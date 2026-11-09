@@ -1,0 +1,31 @@
+---
+interface Props {
+  id: 'x' | 'reddit';
+  title: string;
+  description: string;
+  account: string;
+  action: string;
+}
+const { id, title, description, account, action } = Astro.props;
+---
+
+<section data-screen={id} class="mx-auto w-full max-w-2xl" hidden>
+  <h1 class="text-xl font-semibold tracking-tight">{title}</h1>
+  <p class="mt-1 mb-5 text-sm text-muted">{description}</p>
+  <div class="card flex flex-col gap-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <span class="label !mb-0.5">Compte {account}</span>
+        <span id={`${id}-status`} class="text-muted">Non connecté</span>
+      </div>
+      <button id={`${id}-connect`} type="button" class="btn-ghost">Connecter {account}</button>
+    </div>
+    <div class="flex items-end gap-4 border-t border-line pt-4">
+      <div class="w-40">
+        <label class="label" for={`${id}-limit`}>Limite (0 = tout)</label>
+        <input id={`${id}-limit`} class="field" type="number" min="0" value="0" />
+      </div>
+      <button id={`${id}-add`} type="button" class="btn-primary ml-auto" disabled>{action}</button>
+    </div>
+  </div>
+</section>

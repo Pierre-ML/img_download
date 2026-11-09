@@ -1,118 +1,43 @@
 # Media Downloader
 
-Application web de téléchargement de médias : images Google, vidéos (YouTube, Twitter, Vimeo…) et médias Reddit.
-Backend Flask + Selenium, frontend HTML/CSS/JS vanilla.
-
----
-
-## Stack
-
-| Couche      | Technologie                           |
-|-------------|---------------------------------------|
-| Backend     | Python 3.10+ / Flask                  |
-| Scraping    | Selenium + undetected-chromedriver    |
-| Vidéos      | yt-dlp                                |
-| Validation  | pur Python (magic bytes, sans PIL)    |
-| Frontend    | HTML · CSS (BEM) · JS vanilla         |
-
----
-
-## Prérequis
-
-- Python 3.10+
-- Google Chrome installé
-- Node.js **non requis**
-
----
-
-## Installation
-
-```bash
-pip install flask selenium undetected-chromedriver requests yt-dlp
-```
-
----
-
-## Lancement
-
-```bash
-python app.py
-```
-
-Ouvrir : [http://localhost:5000](http://localhost:5000)
-
-Variables d'environnement optionnelles :
-
-```bash
-PORT=5000
-MEDIA_DEST=~/Pictures/MediaDownloader
-CHROME_VERSION=146   # à ajuster selon votre version Chrome
-```
-
----
-
-## Modes
-
-### Images
-Recherche Google Images par mot-clé. Scraping automatique + tentative haute résolution via le panneau latéral Google.
-
-```
-~/Pictures/MediaDownloader/
-└── paysage montagne/
-    ├── paysage montagne_001.jpg
-    ├── paysage montagne_002.png
-    └── ...
-```
-
-### Vidéos
-Paste d'URLs (une par ligne) depuis YouTube, Twitter/X, Vimeo, Reddit ou tout lien direct. Téléchargement en meilleure qualité disponible, rendu en MP4.
-
-### Reddit
-URL d'un post ou d'un subreddit entier. Extrait toutes les images et vidéos, y compris les galeries Reddit et les vidéos natives v.redd.it.
-
----
+Application de bureau (Tauri 2 + Astro + Rust) pour télécharger des images et vidéos depuis plusieurs sources, avec conversion automatique via ffmpeg.
 
 ## Fonctionnalités
 
-- File d'attente multi-jobs (les jobs s'enchaînent automatiquement)
-- Logs en temps réel via SSE (Server-Sent Events)
-- Barre de progression live
-- Aperçu miniature cliquable dans l'interface
-- Virtual scroll : 250+ images sans lag (images hors écran déchargées de la mémoire)
-- Déduplication par hash MD5 (évite les doublons de contenu)
-- Délais aléatoires entre téléchargements (rate-limit friendly)
-- Bouton Stop pour interrompre le job en cours
-- Bouton Réinitialiser pour tout effacer et repartir à zéro
-- Console masquable (bouton Masquer/Afficher)
+- **Google Images** : téléchargement par mot-clé.
+- **Likes X** : médias des posts likés du compte connecté.
+- **Enregistrés Reddit** : médias des posts enregistrés du compte connecté.
+- **Conversion** : toutes les images en PNG (optimisation oxipng), vidéos et GIF animés en MP4 (H.264, faststart) via ffmpeg embarqué.
+- **Connexion intégrée** : fenêtre de login X / Reddit dans l'app, aucune clé API à créer.
+- File d'attente, déduplication entre les runs, galerie des médias récents.
 
----
+## Prérequis (développement)
 
-## Structure du projet
+- Node 22+
+- Rust stable
+- Windows : WebView2 (inclus dans Windows 11) et Build Tools MSVC
+- Linux : `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev pkg-config libssl-dev`
+- macOS : Xcode Command Line Tools
 
-```
-img_download/
-├── app.py              # Serveur Flask — routes API + runner de file
-├── config.py           # Constantes centralisées (port, délais, tailles…)
-├── workers/
-│   ├── image_worker.py # Scraping Google Images
-│   ├── video_worker.py # Téléchargement vidéo via yt-dlp
-│   ├── reddit_worker.py# Extraction médias Reddit
-│   └── image_utils.py  # Parsing image pur Python (sans PIL)
-└── static/
-    ├── index.html / images.html / videos.html / reddit.html
-    ├── css/            # CSS splitté en composants (BEM)
-    │   ├── style.css   # Point d'entrée (@import)
-    │   ├── var.css     # Design tokens
-    │   └── ...         # Un fichier par composant
-    └── js/
-        ├── common.js   # Logique partagée (SSE, thumbnails, virtual scroll)
-        ├── images.js / videos.js / reddit.js
+## Commandes
+
+```bash
+npm install
+npm run fetch-ffmpeg -- --from-path   # copie le ffmpeg du PATH (sans option : téléchargement)
+npm run tauri dev                     # lance l'app en développement
+npm run tauri build                   # produit l'installeur dans src-tauri/target/release/bundle
 ```
 
----
+## Release
 
-## Notes
+Pousser un tag `vX.Y.Z` déclenche le workflow GitHub Actions `build.yml` : build Windows, Linux et macOS (arm64 et x64), puis création d'une release brouillon avec les installeurs.
 
-- `undetected-chromedriver` gère le téléchargement automatique du ChromeDriver.
-- Si Chrome est mis à jour, changer `CHROME_VERSION` dans `config.py` ou via la variable d'environnement.
-- Pas de Pillow : la validation et les dimensions des images sont lues directement depuis les octets (magic bytes).
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+## Données et sessions
+
+Les sessions X / Reddit (cookies) sont stockées localement, **chiffrées** (AES-GCM) ; la clé est conservée dans le trousseau du système (Gestionnaire d'identifiants Windows, Keychain macOS, Secret Service Linux). Rien n'est envoyé ailleurs que vers les sites concernés.
+
+Les réglages sont dans le dossier de configuration de l'app (`settings.json`), les médias dans `<Images>/MediaDownloader` par défaut.
