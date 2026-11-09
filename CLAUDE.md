@@ -32,7 +32,7 @@ img_download/
 ├── scripts/build-updater.mjs        # recompile le NSIS rendu avec /DMDL_UPDATER → exe de mise à jour
 ├── scripts/name-installers.mjs      # noms fixes → src-tauri/target/release/bundle/release/
 ├── scripts/bump-version.mjs         # version : package.json, package-lock.json, tauri.conf.json, Cargo.toml/lock
-├── .github/workflows/               # release.yml (build Windows + release auto sur push main), check.yml (CI Windows)
+├── .github/workflows/               # ci.yml (un seul workflow : vérification, ou installateurs + release auto si nouvelle version sur push main)
 ├── src/                             # Frontend Astro (pages, composants, TS, styles Tailwind v4 + daisyUI)
 │   ├── lib/animals.ts               # animaux low-poly (viewBox 0 0 64 64)
 │   ├── components/Animal.astro      # rend un animal en SVG (currentColor)
@@ -95,7 +95,7 @@ npm run desktop:build                 # tauri build + build-updater + name-insta
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de tag `vX.Y.Z` déclenche `release.yml` (Windows) : build `npm run desktop:build` puis release GitHub avec `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe`. Pour publier : `npm run bump -- patch`, commit, push `main`. Le workflow échoue si les versions (tauri.conf.json, package.json, package-lock.json, Cargo.toml) divergent.
+Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de tag `vX.Y.Z` déclenche `ci.yml` (Windows) : tests, build `npm run desktop:build` puis release GitHub avec `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe` ; sans nouvelle version, le même workflow ne fait que la vérification (build front + cargo check/test). Pour publier : `npm run bump -- patch`, commit, push `main`. Le workflow échoue si les versions (tauri.conf.json, package.json, package-lock.json, Cargo.toml) divergent.
 
 ## Ajouter une source
 
