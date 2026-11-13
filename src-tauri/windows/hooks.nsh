@@ -1,22 +1,23 @@
-; Hooks NSIS de l'installateur Media Downloader (bundle.windows.nsis.installerHooks).
+; Hooks NSIS de l'installateur Lucascrap (bundle.windows.nsis.installerHooks).
 ;
 ; Données utilisateur :
 ;   %APPDATA%\com.mediadownloader.app       (réglages, sessions chiffrées)
 ;   %LOCALAPPDATA%\com.mediadownloader.app  (cache WebView2)
-; Les médias téléchargés (dossier Images\MediaDownloader par défaut) ne sont JAMAIS supprimés.
+; (identifiant hérité de l'ancien nom « Media Downloader », conservé pour garder réglages et sessions)
+; Les médias téléchargés (dossier Images\Lucascrap par défaut) ne sont JAMAIS supprimés.
 ;
 ; DESINSTALLATION (Paramètres Windows) : le désinstallateur du template supprime les données de
 ; l'application seulement si la case « supprimer les données de l'application » est cochée, et jamais
 ; avec /UPDATE ($UpdateMode = 1). Aucun hook supplémentaire n'est donc nécessaire.
 ;
 ; Mises à jour : notre template (windows/installer.nsi) ne lance AUCUN désinstallateur. Le setup
-; (MediaDownloader-Setup.exe) refuse de s'exécuter si Media Downloader est déjà installé ; l'exe de
-; mise à jour (MediaDownloader-Update.exe, compilé avec /DMDL_UPDATER par scripts/build-updater.mjs)
+; (Lucascrap-Setup.exe) refuse de s'exécuter si Lucascrap est déjà installé ; l'exe de
+; mise à jour (Lucascrap-Update.exe, compilé avec /DMDL_UPDATER par scripts/build-updater.mjs)
 ; copie les fichiers par-dessus l'installation existante. Les données ne sont jamais touchées.
 ;
 ; Ne pas renommer /UPDATE : c'est le seul drapeau que les désinstallateurs déjà installés connaissent.
 
-; Page de fin : la case « Lancer Media Downloader » est COCHÉE par défaut (setup et update) ;
+; Page de fin : la case « Lancer Lucascrap » est COCHÉE par défaut (setup et update) ;
 ; MUI_FINISHPAGE_RUN_NOTCHECKED n'est donc défini nulle part. L'update lance lui-même la nouvelle
 ; version à la fin de la copie et saute sa page de fin, qui n'apparaît (avec cette case) que si ce
 ; lancement a échoué (voir MdlUpdateFinishPre dans installer.nsi).

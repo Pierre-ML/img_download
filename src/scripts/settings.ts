@@ -58,7 +58,7 @@ async function uninstall(): Promise<void> {
   const btn = $<HTMLButtonElement>('app-uninstall');
   try {
     const { ask } = await import('@tauri-apps/plugin-dialog');
-    const ok = await ask('Désinstaller Media Downloader ? L\'application va se fermer. Les médias téléchargés sont conservés.', {
+    const ok = await ask('Désinstaller Lucascrap ? L\'application va se fermer. Les médias téléchargés sont conservés.', {
       title: 'Désinstaller',
       kind: 'warning',
       okLabel: 'Désinstaller',

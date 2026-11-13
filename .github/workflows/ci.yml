@@ -122,7 +122,7 @@ jobs:
         run: |
           d="src-tauri/target/release/bundle/release"
           missing=0
-          for f in "MediaDownloader-Setup.exe" "MediaDownloader-Update.exe"; do
+          for f in "Lucascrap-Setup.exe" "Lucascrap-Update.exe"; do
             if [ ! -f "$d/$f" ]; then
               echo "::error::Fichier manquant : $d/$f"
               missing=1
@@ -133,8 +133,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
-          name: Media Downloader v${{ needs.version.outputs.version }}
+          name: Lucascrap v${{ needs.version.outputs.version }}
           generate_release_notes: true
           files: |
-            src-tauri/target/release/bundle/release/MediaDownloader-Setup.exe
-            src-tauri/target/release/bundle/release/MediaDownloader-Update.exe
+            src-tauri/target/release/bundle/release/Lucascrap-Setup.exe
+            src-tauri/target/release/bundle/release/Lucascrap-Update.exe

@@ -16,6 +16,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
+// Identifiant hérité de l'ancien nom (Media Downloader) : ne pas changer, sinon les sessions sont perdues.
 const KEYRING_SERVICE: &str = "com.mediadownloader.app";
 const KEYRING_USER: &str = "session-key";
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";

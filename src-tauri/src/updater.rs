@@ -1,5 +1,5 @@
 //! Mise à jour de l'app : compare la version installée à la dernière release GitHub, puis
-//! télécharge et lance `MediaDownloader-Update.exe` (l'updater attend la fin de l'app, copie les
+//! télécharge et lance `Lucascrap-Update.exe` (l'updater attend la fin de l'app, copie les
 //! fichiers puis relance l'app lui-même).
 //!
 //! - `app_check_update` : interroge l'API GitHub (release la plus récente).
@@ -25,12 +25,12 @@ use std::time::Instant;
 use reqwest::{redirect::Policy, Client, Url};
 use serde::{Deserialize, Serialize};
 
-const LATEST_API: &str = "https://api.github.com/repos/Pierre-ML/img_download/releases/latest";
+const LATEST_API: &str = "https://api.github.com/repos/Pierre-ML/lucascrap/releases/latest";
 #[cfg(windows)]
 const UPDATER_URL: &str =
-    "https://github.com/Pierre-ML/img_download/releases/latest/download/MediaDownloader-Update.exe";
+    "https://github.com/Pierre-ML/lucascrap/releases/latest/download/Lucascrap-Update.exe";
 #[cfg(windows)]
-const UPDATER_FILE: &str = "MediaDownloader-Update.exe";
+const UPDATER_FILE: &str = "Lucascrap-Update.exe";
 /// Taille maximale acceptée pour l'exe de mise à jour.
 #[cfg(windows)]
 const MAX_BYTES: u64 = 300 * 1024 * 1024;
@@ -104,7 +104,7 @@ fn allowed_host(url: &Url) -> bool {
 
 fn build_client(version: &str) -> Result<Client, String> {
     Client::builder()
-        .user_agent(format!("MediaDownloader/{version}"))
+        .user_agent(format!("Lucascrap/{version}"))
         .https_only(true)
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(60))
@@ -434,7 +434,7 @@ mod tests {
             &Url::parse("https://release-assets.githubusercontent.com/x").unwrap()
         ));
         assert!(allowed_host(
-            &Url::parse("https://github.com/Pierre-ML/img_download").unwrap()
+            &Url::parse("https://github.com/Pierre-ML/lucascrap").unwrap()
         ));
         assert!(!allowed_host(&Url::parse("http://github.com/").unwrap()));
         assert!(!allowed_host(&Url::parse("https://evil.example/").unwrap()));

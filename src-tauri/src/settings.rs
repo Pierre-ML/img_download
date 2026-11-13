@@ -76,7 +76,7 @@ fn default_dest_dir() -> PathBuf {
     dirs::picture_dir()
         .or_else(|| dirs::home_dir().map(|h| h.join("Pictures")))
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("MediaDownloader")
+        .join("Lucascrap")
 }
 
 fn settings_path(app: &AppHandle) -> anyhow::Result<PathBuf> {

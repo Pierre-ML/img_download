@@ -496,7 +496,7 @@ impl Drop for WindowGuard {
 fn open_window(app: &AppHandle, url: Url) -> Result<WebviewWindow> {
     let label = format!("google-{}", WINDOW_SEQ.fetch_add(1, Ordering::Relaxed) + 1);
     WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))
-        .title("Media Downloader — Google Images")
+        .title("Lucascrap — Google Images")
         .inner_size(WIN_W, WIN_H)
         .position(OFFSCREEN, OFFSCREEN)
         .decorations(false)

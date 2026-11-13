@@ -1,16 +1,17 @@
 [package]
-name = "media-downloader"
+name = "lucascrap"
 version = "5.1.2"
-description = "Media Downloader — Google Images, likes X, posts enregistrés Reddit"
+description = "Lucascrap — Google Images, likes X, posts enregistrés Reddit"
+license = "MIT"
 edition = "2021"
 rust-version = "1.80"
 
 [lib]
-name = "media_downloader_lib"
+name = "lucascrap_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "media-downloader"
+name = "lucascrap"
 path = "src/main.rs"
 
 [build-dependencies]

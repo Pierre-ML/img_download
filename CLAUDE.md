@@ -1,4 +1,4 @@
-# CLAUDE.md — Media Downloader
+# CLAUDE.md — Lucascrap
 
 ## Vue d'ensemble
 
@@ -6,7 +6,7 @@ Application desktop **Windows uniquement** (Tauri 2) de téléchargement de méd
 - `src/` : frontend Astro + Tailwind v4, TypeScript vanilla (pas de framework JS)
 - `src-tauri/` : cœur Rust (file d'attente, sources, pipeline, auth)
 - `scripts/fetch-ffmpeg.mjs` : récupère le binaire ffmpeg sidecar
-- `scripts/build-updater.mjs`, `name-installers.mjs` : produisent `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe`
+- `scripts/build-updater.mjs`, `name-installers.mjs` : produisent `Lucascrap-Setup.exe` et `Lucascrap-Update.exe`
 - `src-tauri/windows/` : template NSIS personnalisé (setup + mode updater) et hooks
 
 ## Architecture
@@ -25,7 +25,7 @@ Frontend (Astro) ──invoke(commande)──► Rust (#[tauri::command])
 ## Structure des fichiers
 
 ```
-img_download/
+lucascrap/
 ├── package.json, astro.config.mjs, tsconfig.json
 ├── app-icon.svg / app-icon.png      # source des icônes (npx @tauri-apps/cli icon)
 ├── scripts/fetch-ffmpeg.mjs         # ffmpeg → src-tauri/binaries/ffmpeg-<triple>[.exe]
@@ -95,7 +95,7 @@ npm run desktop:build                 # tauri build + build-updater + name-insta
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de tag `vX.Y.Z` déclenche `ci.yml` (Windows) : tests, build `npm run desktop:build` puis release GitHub avec `MediaDownloader-Setup.exe` et `MediaDownloader-Update.exe` ; sans nouvelle version, le même workflow ne fait que la vérification (build front + cargo check/test). Pour publier : `npm run bump -- patch`, commit, push `main`. Le workflow échoue si les versions (tauri.conf.json, package.json, package-lock.json, Cargo.toml) divergent.
+Release : chaque push sur `main` dont la version (`tauri.conf.json`, source de vérité) n'a pas encore de tag `vX.Y.Z` déclenche `ci.yml` (Windows) : tests, build `npm run desktop:build` puis release GitHub avec `Lucascrap-Setup.exe` et `Lucascrap-Update.exe` ; sans nouvelle version, le même workflow ne fait que la vérification (build front + cargo check/test). Pour publier : `npm run bump -- patch`, commit, push `main`. Le workflow échoue si les versions (tauri.conf.json, package.json, package-lock.json, Cargo.toml) divergent.
 
 ## Ajouter une source
 
@@ -108,13 +108,14 @@ Règles d'une source : s'arrêter si `tx.send` échoue ou si `ctx.cancel` est le
 
 ## Points d'attention
 
-- **Installateurs Windows** : `src-tauri/windows/installer.nsi` est un template NSIS personnalisé (basé sur celui de tauri-bundler, modifications marquées `; MDL:`), installMode `currentUser`. Le même script produit deux exe : le SETUP (`tauri build`, première installation, refuse si déjà installé) et l'UPDATE (`build-updater.mjs`, `/DMDL_UPDATER` : copie par-dessus l'installation existante, relance l'app une fois). Contrat avec `updater.rs` : l'app télécharge `releases/latest/download/MediaDownloader-Update.exe` et le lance avec `/MDL_WAITPID=<pid>` ; le `.onInit` attend ce PID (15 s max). Noms d'assets à ne pas changer sans mettre à jour `updater.rs`. `mainBinaryName` = `media-downloader`. Le sidecar `ffmpeg.exe` est installé/supprimé via `externalBin`.
+- **Installateurs Windows** : `src-tauri/windows/installer.nsi` est un template NSIS personnalisé (basé sur celui de tauri-bundler, modifications marquées `; MDL:`), installMode `currentUser`. Le même script produit deux exe : le SETUP (`tauri build`, première installation, refuse si déjà installé) et l'UPDATE (`build-updater.mjs`, `/DMDL_UPDATER` : copie par-dessus l'installation existante, relance l'app une fois). Contrat avec `updater.rs` : l'app télécharge `releases/latest/download/Lucascrap-Update.exe` et le lance avec `/MDL_WAITPID=<pid>` ; le `.onInit` attend ce PID (15 s max). Noms d'assets à ne pas changer sans mettre à jour `updater.rs`. `mainBinaryName` = `lucascrap`. Le sidecar `ffmpeg.exe` est installé/supprimé via `externalBin`.
 - **ffmpeg sidecar** : `bundle.externalBin = ["binaries/ffmpeg"]` ; le fichier `ffmpeg-<triple>[.exe]` doit exister avant `tauri dev/build` (`fetch-ffmpeg`). À l'exécution : `ffmpeg[.exe]` à côté de `current_exe()`, sinon le PATH.
 - **`cookies_for_url`** (webview Tauri) : à n'appeler qu'en contexte **async** sur Windows, sinon deadlock.
 - **X** : le `queryId` GraphQL périme régulièrement ; en cas d'erreur 400/404 sur les likes, le re-extraire du bundle JS de x.com.
 - **Nommage** : Google `motclé_NNN_LARGExHAUT.ext` (numérotation continue) ; X `user_tweetId_NN` ; Reddit `Titre du post[_NN]`. Caractères interdits nettoyés, 120 car. max, suffixe `_2`, `_3`… en cas de collision. L'extension vient du format de sortie choisi (png/jpg/webp/avif, mp4 pour h264/h265, webm pour vp9/av1).
 - **Déduplication** à trois niveaux : `key` persistée dans `<app_data_dir>/downloaded.json` (→ `skipped`), URL dans le job, SHA-256 du contenu final dans le job.
 - **Sessions** : cookies chiffrés (AES-GCM) sur disque, clé dans le trousseau OS (`keyring`). Les secrets ne passent jamais au frontend (`AccountStatus` = connecté + pseudo).
+- **Identifiant hérité** : avant son renommage, l'app s'appelait « Media Downloader ». L'`identifier` Tauri (`com.mediadownloader.app`, donc `%APPDATA%\com.mediadownloader.app`) et le service `KEYRING_SERVICE` (`auth.rs`) sont **volontairement conservés** : les changer ferait perdre réglages, sessions et `downloaded.json`. Tout le reste (productName, binaire, exe, URLs) est `Lucascrap` / `lucascrap`.
 - **Assets locaux** : le frontend affiche les médias via le protocole `asset:` ; le scope est autorisé dynamiquement sur le dossier de destination.
 - Dossiers de sortie : `<destDir>/Google/<motclé>/`, `<destDir>/X/Likes/`, `<destDir>/Reddit/Saved/`.
 - **Formats de sortie** : images png/jpg/webp/avif, vidéos h264/h265/vp9/av1 (`ImageFormat`/`VideoFormat` dans `settings.rs`, JSON en minuscules). Défaut dans les Réglages (`imageFormat`, `videoFormat`, `imageQuality` 50..100), surchargeable par job via `imageFormat`/`videoFormat` dans `JobRequest`. PNG = qualité max sans perte, AVIF = le plus léger ; MP4 H.264 = qualité/compatibilité max (copie sans ré-encodage possible), WebM AV1 = le plus léger. `optimize_png` ne vaut que pour le PNG, `reencode_video` que pour H.264 (les autres codecs sont toujours ré-encodés) ; CRF de base `video_crf` décalé par codec (`ffmpeg::video_crf_for`).
